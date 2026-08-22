@@ -1,0 +1,30 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build binaries
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o cex-darwin-amd64 main.go
+          GOOS=darwin GOARCH=arm64 go build -o cex-darwin-arm64 main.go
+          GOOS=linux GOARCH=amd64 go build -o cex-linux-amd64 main.go
+          GOOS=windows GOARCH=amd64 go build -o cex-windows-amd64.exe main.go
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            cex-darwin-amd64
+            cex-darwin-arm64
+            cex-linux-amd64
+            cex-windows-amd64.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
