@@ -2,6 +2,11 @@
 
 A beautiful, colorful command-line tool for currency conversion with support for multiple display formats and themes.
 
+## TODO
+- parse flags regardless of position
+- add -v to show version
+- fix release process
+
 ## Features
 
 - Real-time exchange rates from exchangerate-api.com

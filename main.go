@@ -171,21 +171,19 @@ func printTable(targets []string, rates map[string]float64, amount float64, base
 	fmt.Println(titleStyle(title))
 	fmt.Println()
 
-	// Define table borders - two column layout
+	// Define table borders - two column layout (21 + 20 dashes)
 	topBorder := borderStyle("┌─────────────────────┬────────────────────┐")
 	headerBorder := borderStyle("├─────────────────────┼────────────────────┤")
 	bottomBorder := borderStyle("└─────────────────────┴────────────────────┘")
 	leftPipe := borderStyle("│")
+	rightPipe := borderStyle("│")  // ✅ Added this line
 
 	fmt.Println(topBorder)
 
-	// Print header
-	header := fmt.Sprintf("%s %-21s %-21s%s",
-		leftPipe,
-		headerStyle("Converted Value"),
-		headerStyle(fmt.Sprintf("Rate 1 %s = X", strings.ToUpper(base))),
-		borderStyle("│"))
-	fmt.Println(header)
+	// Print header - pad plain text BEFORE styling to avoid ANSI code interference
+	col1Header := headerStyle(fmt.Sprintf(" %-20s", "Converted Value"))
+	col2Header := headerStyle(fmt.Sprintf(" %-19s", fmt.Sprintf("Rate (1 %s = X)", strings.ToUpper(base))))
+	fmt.Printf("%s%s%s%s%s\n", leftPipe, col1Header, leftPipe, col2Header, rightPipe)
 	fmt.Println(headerBorder)
 
 	// Print data rows
@@ -193,23 +191,19 @@ func printTable(targets []string, rates map[string]float64, amount float64, base
 		currUpper := strings.ToUpper(curr)
 		rate, ok := rates[currUpper]
 		if !ok {
-			row := fmt.Sprintf("%s %-21s %-21s%s",
-				leftPipe,
-				errorStyle("N/A"),
-				errorStyle("Currency not found"),
-				borderStyle("│"))
-			fmt.Println(row)
+			col1 := errorStyle(fmt.Sprintf(" %-20s", "N/A"))
+			col2 := errorStyle(fmt.Sprintf(" %-19s", "Currency not found"))
+			fmt.Printf("%s%s%s%s%s\n", leftPipe, col1, leftPipe, col2, rightPipe)
 			continue
 		}
 
 		converted := amount * rate
 		valueWithCurrency := fmt.Sprintf("%s %s", formatNumber(converted), currUpper)
-		row := fmt.Sprintf("%s %-21s %-21s%s",
-			leftPipe,
-			valueStyle(valueWithCurrency),
-			rateStyle(fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper)),
-			borderStyle("│"))
-		fmt.Println(row)
+		rateStr := fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper)
+
+		col1 := valueStyle(fmt.Sprintf(" %-20s", valueWithCurrency))
+		col2 := rateStyle(fmt.Sprintf(" %-19s", rateStr))
+		fmt.Printf("%s%s%s%s%s\n", leftPipe, col1, leftPipe, col2, rightPipe)
 	}
 
 	fmt.Println(bottomBorder)
