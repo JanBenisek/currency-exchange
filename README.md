@@ -4,6 +4,12 @@ Simple CLI tool to convert currencies.
 
 ## Install
 
+### Homebrew (recommended)
+```bash
+brew tap JanBenisek/cex
+brew install cex
+```
+
 ### From source
 ```bash
 cd /Users/janbenisek/github/currency-exchange
