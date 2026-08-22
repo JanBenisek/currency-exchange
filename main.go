@@ -9,8 +9,6 @@ import (
 	"os"
 	"strconv"
 	"strings"
-
-	"github.com/charmbracelet/lipgloss"
 )
 
 const apiURL = "https://api.exchangerate-api.com/v4/latest/"
@@ -20,91 +18,92 @@ type RateResponse struct {
 	Rates map[string]float64 `json:"rates"`
 }
 
-// Styles using Lip Gloss
+// Color styles using ANSI codes
 var (
-	borderStyle   lipgloss.Style
-	headerStyle   lipgloss.Style
-	valueStyle    lipgloss.Style
-	rateStyle     lipgloss.Style
-	errorStyle    lipgloss.Style
-	titleStyle    lipgloss.Style
-	resetStyle    lipgloss.Style
+	reset    = "\033[0m"
+	bold     = "\033[1m"
+
+	// Ocean theme
+	cyan         = "\033[0;36m"
+	brightCyan   = "\033[1;36m"
+	brightCyanBg = "\033[96m"
+	blue         = "\033[0;34m"
+	brightBlue   = "\033[1;34m"
+	red          = "\033[0;31m"
+	brightRed    = "\033[1;31m"
+
+	// Sunset theme
+	yellow        = "\033[0;33m"
+	brightYellow  = "\033[1;33m"
+	brightYellowBg = "\033[93m"
+	orange        = "\033[38;5;208m"
+	brightOrange  = "\033[1;38;5;208m"
+
+	// Forest theme
+	green         = "\033[0;32m"
+	brightGreen   = "\033[1;32m"
+	brightGreenBg = "\033[92m"
+	lime          = "\033[38;5;154m"
+	brightLime    = "\033[1;38;5;154m"
+	brown         = "\033[38;5;130m"
+	brightBrown   = "\033[1;38;5;130m"
+
+	// Neon theme
+	magenta        = "\033[0;35m"
+	brightMagenta  = "\033[1;35m"
+	brightMagentaBg = "\033[95m"
+	brightGreenNeon = "\033[1;92m"
+	brightBlueNeon  = "\033[1;94m"
+)
+
+// Style functions
+var (
+	borderStyle   func(string) string
+	headerStyle   func(string) string
+	valueStyle    func(string) string
+	rateStyle     func(string) string
+	errorStyle    func(string) string
+	titleStyle    func(string) string
 )
 
 func initStyles(themeName string) {
-	// Color palettes for different themes
-	var (
-		borderColor lipgloss.Color
-		headerColor lipgloss.Color
-		valueColor  lipgloss.Color
-		rateColor   lipgloss.Color
-		errorColor  lipgloss.Color
-		titleColor  lipgloss.Color
-	)
-
 	switch themeName {
 	case "ocean":
-		borderColor = lipgloss.Color("36")  // Cyan
-		headerColor = lipgloss.Color("96")  // Bright Cyan
-		valueColor = lipgloss.Color("34")   // Blue
-		rateColor = lipgloss.Color("34")    // Blue
-		errorColor = lipgloss.Color("196") // Red
-		titleColor = lipgloss.Color("96")   // Bright Cyan
+		borderStyle = func(s string) string { return cyan + bold + s + reset }
+		headerStyle = func(s string) string { return brightCyanBg + bold + s + reset }
+		valueStyle = func(s string) string { return brightBlue + bold + s + reset }
+		rateStyle = func(s string) string { return blue + s + reset }
+		errorStyle = func(s string) string { return brightRed + bold + s + reset }
+		titleStyle = func(s string) string { return brightCyanBg + bold + s + reset }
 	case "sunset":
-		borderColor = lipgloss.Color("208") // Orange
-		headerColor = lipgloss.Color("226") // Yellow
-		valueColor = lipgloss.Color("208")  // Orange
-		rateColor = lipgloss.Color("214")  // Yellow
-		errorColor = lipgloss.Color("196") // Red
-		titleColor = lipgloss.Color("226") // Yellow
+		borderStyle = func(s string) string { return orange + bold + s + reset }
+		headerStyle = func(s string) string { return brightYellowBg + bold + s + reset }
+		valueStyle = func(s string) string { return brightOrange + bold + s + reset }
+		rateStyle = func(s string) string { return brightYellow + s + reset }
+		errorStyle = func(s string) string { return brightRed + bold + s + reset }
+		titleStyle = func(s string) string { return brightYellowBg + bold + s + reset }
 	case "forest":
-		borderColor = lipgloss.Color("154") // Lime
-		headerColor = lipgloss.Color("46")  // Green
-		valueColor = lipgloss.Color("154")  // Lime
-		rateColor = lipgloss.Color("34")    // Green
-		errorColor = lipgloss.Color("130") // Brown
-		titleColor = lipgloss.Color("46")   // Green
+		borderStyle = func(s string) string { return lime + bold + s + reset }
+		headerStyle = func(s string) string { return brightGreenBg + bold + s + reset }
+		valueStyle = func(s string) string { return brightLime + bold + s + reset }
+		rateStyle = func(s string) string { return green + s + reset }
+		errorStyle = func(s string) string { return brightBrown + bold + s + reset }
+		titleStyle = func(s string) string { return brightGreenBg + bold + s + reset }
 	case "neon":
-		borderColor = lipgloss.Color("201") // Magenta
-		headerColor = lipgloss.Color("201") // Magenta
-		valueColor = lipgloss.Color("46")   // Green
-		rateColor = lipgloss.Color("27")    // Blue
-		errorColor = lipgloss.Color("226") // Yellow
-		titleColor = lipgloss.Color("201")  // Magenta
+		borderStyle = func(s string) string { return brightMagenta + bold + s + reset }
+		headerStyle = func(s string) string { return brightMagentaBg + bold + s + reset }
+		valueStyle = func(s string) string { return brightGreenNeon + bold + s + reset }
+		rateStyle = func(s string) string { return brightBlueNeon + s + reset }
+		errorStyle = func(s string) string { return brightYellow + bold + s + reset }
+		titleStyle = func(s string) string { return brightMagentaBg + bold + s + reset }
 	default:
-		borderColor = lipgloss.Color("36")
-		headerColor = lipgloss.Color("96")
-		valueColor = lipgloss.Color("34")
-		rateColor = lipgloss.Color("34")
-		errorColor = lipgloss.Color("196")
-		titleColor = lipgloss.Color("96")
+		borderStyle = func(s string) string { return cyan + bold + s + reset }
+		headerStyle = func(s string) string { return brightCyanBg + bold + s + reset }
+		valueStyle = func(s string) string { return brightBlue + bold + s + reset }
+		rateStyle = func(s string) string { return blue + s + reset }
+		errorStyle = func(s string) string { return brightRed + bold + s + reset }
+		titleStyle = func(s string) string { return brightCyanBg + bold + s + reset }
 	}
-
-	// Base styles
-	borderStyle = lipgloss.NewStyle().
-		Foreground(borderColor).
-		Bold(true)
-
-	headerStyle = lipgloss.NewStyle().
-		Foreground(headerColor).
-		Bold(true)
-
-	valueStyle = lipgloss.NewStyle().
-		Foreground(valueColor).
-		Bold(true)
-
-	rateStyle = lipgloss.NewStyle().
-		Foreground(rateColor)
-
-	errorStyle = lipgloss.NewStyle().
-		Foreground(errorColor).
-		Bold(true)
-
-	titleStyle = lipgloss.NewStyle().
-		Foreground(titleColor).
-		Bold(true)
-
-	resetStyle = lipgloss.NewStyle()
 }
 
 func getRates(base string) (map[string]float64, error) {
@@ -131,11 +130,8 @@ func getRates(base string) (map[string]float64, error) {
 	return rateResp.Rates, nil
 }
 
-// parseAmount parses an amount string with optional 'k' suffix (e.g., "700k" -> 700000)
 func parseAmount(s string) (float64, error) {
 	s = strings.ToLower(strings.TrimSpace(s))
-
-	// Check for 'k' suffix
 	if strings.HasSuffix(s, "k") {
 		numStr := strings.TrimSuffix(s, "k")
 		num, err := strconv.ParseFloat(numStr, 64)
@@ -144,12 +140,9 @@ func parseAmount(s string) (float64, error) {
 		}
 		return num * 1000, nil
 	}
-
-	// Parse as regular float
 	return strconv.ParseFloat(s, 64)
 }
 
-// formatNumber formats a number with thousand separators
 func formatNumber(f float64) string {
 	str := fmt.Sprintf("%.2f", f)
 	parts := strings.Split(str, ".")
@@ -159,7 +152,6 @@ func formatNumber(f float64) string {
 		decPart = "." + parts[1]
 	}
 
-	// Add thousand separators
 	var result []rune
 	count := 0
 	for i := len(intPart) - 1; i >= 0; i-- {
@@ -174,167 +166,123 @@ func formatNumber(f float64) string {
 }
 
 func printTable(targets []string, rates map[string]float64, amount float64, base string) {
-	// Title
 	title := fmt.Sprintf("Currency Exchange converting %.2f %s", amount, strings.ToUpper(base))
 	fmt.Println()
-	fmt.Println(titleStyle.Render(title))
+	fmt.Println(titleStyle(title))
 	fmt.Println()
 
-	// Table dimensions
-	borderWidth := 71
+	// Define table borders - two column layout
+	topBorder := borderStyle("┌─────────────────────┬────────────────────┐")
+	headerBorder := borderStyle("├─────────────────────┼────────────────────┤")
+	bottomBorder := borderStyle("└─────────────────────┴────────────────────┘")
+	leftPipe := borderStyle("│")
 
-	// Render border characters
-	leftBorder := borderStyle.Render("┌")
-	rightBorder := borderStyle.Render("┐")
-	bottomLeft := borderStyle.Render("└")
-	bottomRight := borderStyle.Render("┘")
-	borderLine := borderStyle.Render("─")
-	pipeChar := borderStyle.Render("│")
-	middleLeft := borderStyle.Render("├")
-	middleRight := borderStyle.Render("┤")
+	fmt.Println(topBorder)
 
-	// Top border
-	fmt.Println(leftBorder + strings.Repeat(borderLine, borderWidth-2) + rightBorder)
-
-	// Header
-	headerCurrency := headerStyle.Render("Currency")
-	headerConverted := headerStyle.Render("Converted")
-	headerRate := headerStyle.Render(fmt.Sprintf("Rate (1 %s = X)", strings.ToUpper(base)))
-
-	header := fmt.Sprintf("%s %-9s │ %-14s │ %-31s%s", pipeChar, headerCurrency, headerConverted, headerRate, pipeChar)
+	// Print header
+	header := fmt.Sprintf("%s %-21s %-21s%s",
+		leftPipe,
+		headerStyle("Converted Value"),
+		headerStyle(fmt.Sprintf("Rate (1 %s = X)", strings.ToUpper(base))),
+		borderStyle("│"))
 	fmt.Println(header)
+	fmt.Println(headerBorder)
 
-	// Middle border
-	fmt.Println(middleLeft + strings.Repeat(borderLine, borderWidth-2) + middleRight)
-
-	// Data rows
+	// Print data rows
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
 		rate, ok := rates[currUpper]
 		if !ok {
-			row := fmt.Sprintf("%s %-9s │ %-14s │ %-31s%s", pipeChar, currUpper, errorStyle.Render("N/A"), "Currency not found", pipeChar)
+			row := fmt.Sprintf("%s %-21s %-21s%s",
+				leftPipe,
+				errorStyle("N/A"),
+				errorStyle("Currency not found"),
+				borderStyle("│"))
 			fmt.Println(row)
 			continue
 		}
 
 		converted := amount * rate
-		rateText := rateStyle.Render(fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper))
-		convertedText := valueStyle.Render(formatNumber(converted))
-
-		row := fmt.Sprintf("%s %-9s │ %-14s │ %-31s%s", pipeChar, currUpper, convertedText, rateText, pipeChar)
+		valueWithCurrency := fmt.Sprintf("%s %s", formatNumber(converted), currUpper)
+		row := fmt.Sprintf("%s %-21s %-21s%s",
+			leftPipe,
+			valueStyle(valueWithCurrency),
+			rateStyle(fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper)),
+			borderStyle("│"))
 		fmt.Println(row)
 	}
 
-	// Bottom border
-	fmt.Println(bottomLeft + strings.Repeat(borderLine, borderWidth-2) + bottomRight)
+	fmt.Println(bottomBorder)
 	fmt.Println()
 }
 
 func printCards(targets []string, rates map[string]float64, amount float64, base string) {
-	// Title
 	title := fmt.Sprintf("Currency Exchange converting %.2f %s", amount, strings.ToUpper(base))
 	fmt.Println()
-	fmt.Println(titleStyle.Render(title))
+	fmt.Println(titleStyle(title))
 	fmt.Println()
-
-	cardWidth := 34
-	topBorder := borderStyle.Render("┌" + strings.Repeat("─", cardWidth-2) + "┐")
-	bottomBorder := borderStyle.Render("└" + strings.Repeat("─", cardWidth-2) + "┘")
 
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
 		rate, ok := rates[currUpper]
 		if !ok {
-			fmt.Println(topBorder)
-			errorText := errorStyle.Render(fmt.Sprintf("  Not found: %s", currUpper))
-			padding := cardWidth - 4 - len(currUpper) - 10
-			fmt.Printf("%s %s%s%s\n", borderStyle.Render("│"), errorText, strings.Repeat(" ", padding), borderStyle.Render("│"))
-			fmt.Println(bottomBorder)
+			fmt.Println(borderStyle("┌────────────────────────────────┐"))
+			fmt.Printf("%s %s%s\n", borderStyle("│"), errorStyle(fmt.Sprintf("Not found: %s", currUpper)), borderStyle(" │"))
+			fmt.Println(borderStyle("└────────────────────────────────┘"))
 			fmt.Println()
 			continue
 		}
 
 		converted := amount * rate
-
-		fmt.Println(topBorder)
-
-		// Header line
-		headerText := headerStyle.Render("  " + currUpper)
-		padding := cardWidth - 4 - len(currUpper)
-		fmt.Printf("%s %s%s%s\n", borderStyle.Render("│"), headerText, strings.Repeat(" ", padding), borderStyle.Render("│"))
-
-		// Converted line
-		convertedText := valueStyle.Render(formatNumber(converted))
-		padding = cardWidth - 14 - len(formatNumber(converted))
-		fmt.Printf("%s Converted:  %s%s%s\n", borderStyle.Render("│"), convertedText, strings.Repeat(" ", padding), borderStyle.Render("│"))
-
-		// Rate line
-		rateText := rateStyle.Render(fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper))
-		padding = cardWidth - 10 - len(fmt.Sprintf("1 %s = %.4f %s", strings.ToUpper(base), rate, currUpper))
-		fmt.Printf("%s Rate:      %s%s%s\n", borderStyle.Render("│"), rateText, strings.Repeat(" ", padding), borderStyle.Render("│"))
-
-		fmt.Println(bottomBorder)
+		fmt.Println(borderStyle("┌────────────────────────────────┐"))
+		fmt.Printf("%s %s%-10s%s %s\n", borderStyle("│"), headerStyle(""), currUpper, headerStyle(""), borderStyle(" │"))
+		fmt.Printf("%s Converted: %s%-15s%s %s\n", borderStyle("│"), valueStyle(""), formatNumber(converted), valueStyle(""), borderStyle(" │"))
+		fmt.Printf("%s Rate: %s1 %s = %.4f %s%s %s\n", borderStyle("│"), rateStyle(""), strings.ToUpper(base), rate, currUpper, strings.Repeat(" ", 11-len(currUpper)), borderStyle(" │"))
+		fmt.Println(borderStyle("└────────────────────────────────┘"))
 		fmt.Println()
 	}
 }
 
 func printList(targets []string, rates map[string]float64, amount float64, base string) {
-	// Title
 	title := fmt.Sprintf("Currency Exchange converting %.2f %s", amount, strings.ToUpper(base))
 	fmt.Println()
-	fmt.Println(titleStyle.Render(title))
+	fmt.Println(titleStyle(title))
 	fmt.Println()
 
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
 		rate, ok := rates[currUpper]
 		if !ok {
-			line := fmt.Sprintf("%s %s%-6s%s → %s",
-				borderStyle.Render("│"),
-				headerStyle,
-				currUpper,
-				headerStyle,
-				errorStyle.Render("N/A"))
-			fmt.Println(line)
+			fmt.Printf("  %s%-6s%s → %s\n", headerStyle(""), currUpper, headerStyle(""), errorStyle("N/A"))
 			continue
 		}
 
 		converted := amount * rate
-		rateText := rateStyle.Render(fmt.Sprintf("(1 %s = %.4f %s)", strings.ToUpper(base), rate, currUpper))
-
-		line := fmt.Sprintf("%s %s%-6s%s → %s%-15s%s  %s",
-			borderStyle.Render("│"),
-			headerStyle,
-			currUpper,
-			headerStyle,
-			valueStyle,
-			formatNumber(converted),
-			valueStyle,
-			rateText)
-		fmt.Println(line)
+		fmt.Printf("  %s%-6s%s → %s%-15s%s  %s\n",
+			headerStyle(""), currUpper, headerStyle(""),
+			valueStyle(""), formatNumber(converted), valueStyle(""),
+			rateStyle(fmt.Sprintf("(1 %s = %.4f %s)", strings.ToUpper(base), rate, currUpper)))
 	}
 
 	fmt.Println()
 }
 
 func printMinimal(targets []string, rates map[string]float64, amount float64, base string) {
-	// Title line
 	titleLine := fmt.Sprintf("%.2f %s →", amount, strings.ToUpper(base))
 	fmt.Println()
-	fmt.Println(titleStyle.Render(titleLine))
+	fmt.Println(titleStyle(titleLine))
 
 	var results []string
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
 		rate, ok := rates[currUpper]
 		if !ok {
-			results = append(results, errorStyle.Render(currUpper+"=N/A"))
+			results = append(results, errorStyle(currUpper+"=N/A"))
 			continue
 		}
 
 		converted := amount * rate
-		result := fmt.Sprintf("%s=%s", valueStyle.Render(currUpper), formatNumber(converted))
-		results = append(results, result)
+		results = append(results, valueStyle(currUpper)+"="+formatNumber(converted))
 	}
 
 	fmt.Printf("  %s\n\n", strings.Join(results, "  |  "))
@@ -354,28 +302,23 @@ func printResults(targets []string, rates map[string]float64, amount float64, ba
 }
 
 func main() {
-	// Check for help
 	if len(os.Args) > 1 && (os.Args[1] == "-h" || os.Args[1] == "-help" || os.Args[1] == "--help") {
 		printHelp()
 		os.Exit(0)
 	}
 
-	// Parse flags
 	flag.StringVar(&themeName, "theme", "ocean", "Color theme: ocean, sunset, forest, neon")
 	flag.StringVar(&displayFormat, "format", "table", "Display format: table, cards, list, minimal")
 	flag.Parse()
 
-	// Initialize styles with selected theme
 	initStyles(themeName)
 
-	// Get remaining args after flags
 	args := flag.Args()
 	if len(args) < 4 {
 		printHelp()
 		os.Exit(1)
 	}
 
-	// Parse amount (supports "k" suffix like "700k" -> 700000)
 	amount, err := parseAmount(args[0])
 	if err != nil {
 		fmt.Printf("Invalid amount: %s\n", args[0])
@@ -384,7 +327,6 @@ func main() {
 
 	base := args[1]
 
-	// Check for "to" separator and get target currencies
 	if args[2] != "to" {
 		fmt.Println("Error: expected 'to' as third argument")
 		fmt.Println("Usage: cex <amount> <from_currency> to <to_currency1> <to_currency2> ...")
@@ -439,7 +381,3 @@ var (
 	themeName     string
 	displayFormat string
 )
-
-func init() {
-	// Default values are set in flag.StringVar
-}
