@@ -183,7 +183,7 @@ func printTable(targets []string, rates map[string]float64, amount float64, base
 	header := fmt.Sprintf("%s %-21s %-21s%s",
 		leftPipe,
 		headerStyle("Converted Value"),
-		headerStyle(fmt.Sprintf("Rate (1 %s = X)", strings.ToUpper(base))),
+		headerStyle(fmt.Sprintf("Rate 1 %s = X", strings.ToUpper(base))),
 		borderStyle("│"))
 	fmt.Println(header)
 	fmt.Println(headerBorder)
