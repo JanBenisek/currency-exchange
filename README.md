@@ -4,12 +4,12 @@ A beautiful, colorful command-line tool for currency conversion with support for
 
 ## Features
 
-- 🌍 **Real-time exchange rates** from exchangerate-api.com
-- 🎨 **4 beautiful color themes**: Ocean, Sunset, Forest, and Neon
-- 📊 **Multiple display formats**: Table, Cards, List, and Minimal
-- 🔢 **Smart number formatting**: Thousand separators for easy reading
-- ➗ **K suffix support**: Use `700k` instead of `700000`
-- 🎯 **Multiple currency conversions** in a single command
+- Real-time exchange rates from exchangerate-api.com
+- 4 beautiful color themes: Ocean, Sunset, Forest, and Neon
+- Multiple display formats: Table, Cards, List, and Minimal
+- Smart number formatting: Thousand separators for easy reading
+- K suffix support: Use `700k` instead of `700000`
+- Multiple currency conversions in a single command
 
 ## Installation
 
@@ -87,7 +87,7 @@ Choose from 4 display formats:
 | `table`  | Clean two-column table with borders     | See examples below                |
 | `cards`  | Individual cards for each currency        | Good for single conversions      |
 | `list`   | Compact list format                      | Great for multiple currencies     |
-| `minimal | Ultra-compact single line                | Quick reference                   |
+| `minimal`| Ultra-compact single line                | Quick reference                   |
 
 **Default:** `table`
 
