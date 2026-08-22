@@ -51,3 +51,19 @@ $ cex 100 czk to pln eur chf
 ```bash
 go run main.go 100 usd to eur gbp
 ```
+
+## Release
+
+To release a new version:
+
+1. Tag the release:
+   ```bash
+   git tag v1.0.1
+   git push origin v1.0.1
+   ```
+
+2. GitHub Actions will:
+   - Build binaries for macOS (Intel/ARM), Linux, and Windows
+   - Create a GitHub Release with the binaries attached
+
+3. Homebrew tap updates automatically via workflow in homebrew-cex repo
