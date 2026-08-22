@@ -6,6 +6,9 @@ A beautiful, colorful command-line tool for currency conversion with support for
 - parse flags regardless of position
 - add -v to show version
 - fix release process
+- add line chart as history - each row separated by line and on the side, aligned, 3m history
+
+
 
 ## Features
 
