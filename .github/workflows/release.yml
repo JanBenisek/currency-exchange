@@ -20,10 +20,12 @@ jobs:
       
       - name: Build binaries
         run: |
-          GOOS=darwin GOARCH=amd64 go build -o cex-darwin-amd64 main.go
-          GOOS=darwin GOARCH=arm64 go build -o cex-darwin-arm64 main.go
-          GOOS=linux GOARCH=amd64 go build -o cex-linux-amd64 main.go
-          GOOS=windows GOARCH=amd64 go build -o cex-windows-amd64.exe main.go
+          VERSION=${GITHUB_REF_NAME#v} # Remove 'v' prefix from tag
+          echo "Building version $VERSION"
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-amd64 main.go
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-arm64 main.go
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-linux-amd64 main.go
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-windows-amd64.exe main.go
       
       - name: Create Release
         uses: softprops/action-gh-release@v1

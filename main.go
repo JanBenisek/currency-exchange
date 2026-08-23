@@ -2,50 +2,53 @@ package main
 
 import (
 	"encoding/json"
-	"flag"
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/jedib0t/go-pretty/v6/table"
+	"github.com/jedib0t/go-pretty/v6/text"
 )
 
 const (
-	apiURL = "https://api.exchangerate-api.com/v4/latest/"
-
-	// Free historical API — no key required.
-	frankfurterURL = "https://api.frankfurter.dev/v2/rates"
-
-	historyDays = 90
-
-	// Width of each compact history chart.
-	chartWidth  = 20
-	chartHeight = 5
-	chartGap    = 2 
-
+	apiURL     = "https://api.exchangerate-api.com/v4/latest/"
 	httpTimeout = 15 * time.Second
 )
+
+// Version is set via ldflags during build
+// If not set, defaults to "dev"
+var Version = "dev"
 
 // RateResponse represents the current ExchangeRate-API response.
 type RateResponse struct {
 	Rates map[string]float64 `json:"rates"`
 }
 
-// FrankfurterRate represents one historical rate row.
-type FrankfurterRate struct {
-	Date  string  `json:"date"`
-	Base  string  `json:"base"`
-	Quote string  `json:"quote"`
-	Rate  float64 `json:"rate"`
+// ConversionResult represents one currency conversion for JSON output.
+type ConversionResult struct {
+	Currency  string  `json:"currency"`
+	Converted string  `json:"converted"` // Use string to preserve formatting
+	Rate      string  `json:"rate"`      // Use string for consistent decimal places
 }
 
-// HistoryPoint is one point used by the terminal chart.
-type HistoryPoint struct {
-	Date time.Time
-	Rate float64
+// JSONOutput represents the complete JSON output structure.
+type JSONOutput struct {
+	Amount string              `json:"amount"`
+	Base   string              `json:"base"`
+	Date   string              `json:"date"`
+	Rates  []ConversionResult `json:"rates"`
+}
+
+// Config holds parsed flag values.
+type Config struct {
+	showVersion bool
+	themeName   string
+	format      string
+	positional  []string
 }
 
 // Color styles using ANSI codes.
@@ -98,9 +101,8 @@ var (
 
 // Command options.
 var (
-	themeName     string
-	displayFormat string
-	showHistory   bool
+	themeName     = "ocean"
+	displayFormat = "table"
 )
 
 func initStyles(themeName string) {
@@ -147,6 +149,43 @@ func initStyles(themeName string) {
 	}
 }
 
+// parseFlags parses flags from anywhere in the argument list.
+// It extracts flags and returns a Config with the parsed values.
+func parseFlags(args []string) Config {
+	config := Config{
+		showVersion: false,
+		themeName:   "ocean",
+		format:      "table",
+		positional:  make([]string, 0, len(args)),
+	}
+
+	for i := 0; i < len(args); i++ {
+		arg := args[i]
+
+		switch {
+		case arg == "-v" || arg == "--version":
+			config.showVersion = true
+		case arg == "-t" || arg == "-theme" || arg == "--theme":
+			if i+1 < len(args) {
+				config.themeName = args[i+1]
+				i++ // skip next arg
+			}
+		case arg == "-f" || arg == "-format" || arg == "--format":
+			if i+1 < len(args) {
+				config.format = args[i+1]
+				i++ // skip next arg
+			}
+		case arg == "-help" || arg == "--help":
+			// Help is handled before parseFlags is called
+			config.positional = append(config.positional, arg)
+		default:
+			config.positional = append(config.positional, arg)
+		}
+	}
+
+	return config
+}
+
 // getRates gets the current rates.
 // This preserves your existing current-conversion behavior.
 func getRates(base string) (map[string]float64, error) {
@@ -161,6 +200,9 @@ func getRates(base string) (map[string]float64, error) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		if resp.StatusCode == http.StatusNotFound {
+			return nil, fmt.Errorf("currency '%s' not found", strings.ToUpper(base))
+		}
 		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
 	}
 
@@ -176,123 +218,6 @@ func getRates(base string) (map[string]float64, error) {
 	}
 
 	return rateResp.Rates, nil
-}
-
-// getHistoricalRates gets the entire 3-month series in ONE request.
-//
-// Frankfurter supports:
-//   ?from=YYYY-MM-DD&to=YYYY-MM-DD&base=CZK&quotes=EUR,GBP,USD
-//
-// No API key is required.
-func getHistoricalRates(
-	base string,
-	targets []string,
-) (map[string][]HistoryPoint, error) {
-	if len(targets) == 0 {
-		return nil, fmt.Errorf("no target currencies")
-	}
-
-	now := time.Now()
-
-	endDate := now
-	startDate := now.AddDate(0, 0, -historyDays)
-
-	quotes := make([]string, 0, len(targets))
-
-	for _, target := range targets {
-		quotes = append(
-			quotes,
-			strings.ToUpper(target),
-		)
-	}
-
-	params := url.Values{}
-	params.Set("from", startDate.Format("2006-01-02"))
-	params.Set("to", endDate.Format("2006-01-02"))
-	params.Set("base", strings.ToUpper(base))
-	params.Set("quotes", strings.Join(quotes, ","))
-
-	requestURL := frankfurterURL + "?" + params.Encode()
-
-	client := &http.Client{
-		Timeout: httpTimeout,
-	}
-
-	resp, err := client.Get(requestURL)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to fetch historical rates: %w",
-			err,
-		)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-
-		if len(body) > 0 {
-			return nil, fmt.Errorf(
-				"Frankfurter returned HTTP %d: %s",
-				resp.StatusCode,
-				strings.TrimSpace(string(body)),
-			)
-		}
-
-		return nil, fmt.Errorf(
-			"Frankfurter returned HTTP %d",
-			resp.StatusCode,
-		)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf(
-			"failed to read historical response: %w",
-			err,
-		)
-	}
-
-	var rows []FrankfurterRate
-
-	if err := json.Unmarshal(body, &rows); err != nil {
-		return nil, fmt.Errorf(
-			"failed to parse historical response: %w",
-			err,
-		)
-	}
-
-	history := make(map[string][]HistoryPoint)
-
-	for _, target := range targets {
-		history[strings.ToUpper(target)] = []HistoryPoint{}
-	}
-
-	for _, row := range rows {
-		date, err := time.Parse(
-			"2006-01-02",
-			row.Date,
-		)
-
-		if err != nil {
-			continue
-		}
-
-		quote := strings.ToUpper(row.Quote)
-
-		if _, exists := history[quote]; !exists {
-			continue
-		}
-
-		history[quote] = append(
-			history[quote],
-			HistoryPoint{
-				Date: date,
-				Rate: row.Rate,
-			},
-		)
-	}
-
-	return history, nil
 }
 
 // parseAmount parses an amount and supports k.
@@ -399,994 +324,226 @@ func padANSI(s string, width int) string {
 	)
 }
 
-// buildChart generates a compact Unicode line chart.
-
-// buildChart creates a compact dot-based chart.
-//
-// Example:
-//
-// ┌──────────────────┐
-// │ EUR  3M          │
-// │       ..         │
-// │    ...  ...      │
-// │  ..        ..    │
-// │..            ... │
-// │ 06/2026  07/2026 │
-// └──────────────────┘
-//
-// The dots are deliberately not connected. This keeps the tiny
-// terminal charts much easier to read.
-func buildChart(history []HistoryPoint) []string {
-	lines := make([]string, chartHeight)
-
-	for i := range lines {
-		lines[i] = strings.Repeat(" ", chartWidth)
-	}
-
-	if len(history) < 2 {
-		lines[chartHeight/2] = "no data"
-		return lines
-	}
-
-	// Find min/max rate.
-	minRate := history[0].Rate
-	maxRate := history[0].Rate
-
-	for _, point := range history {
-		if point.Rate < minRate {
-			minRate = point.Rate
-		}
-
-		if point.Rate > maxRate {
-			maxRate = point.Rate
-		}
-	}
-
-	// Avoid division by zero when all values are identical.
-	if maxRate == minRate {
-		row := []rune(
-			strings.Repeat(".", chartWidth),
-		)
-
-		lines[chartHeight/2] = string(row)
-
-		return lines
-	}
-
-	// Create a blank plotting canvas.
-	canvas := make([][]rune, chartHeight)
-
-	for y := 0; y < chartHeight; y++ {
-		canvas[y] = make([]rune, chartWidth)
-
-		for x := 0; x < chartWidth; x++ {
-			canvas[y][x] = ' '
-		}
-	}
-
-	// Plot observations.
-	//
-	// We use one x-coordinate for each horizontal terminal column.
-	// Multiple daily observations that fall into the same column are
-	// represented by the average value for that column.
-	buckets := make([][]float64, chartWidth)
-
-	for _, point := range history {
-		first := history[0].Date
-		last := history[len(history)-1].Date
-
-		totalSeconds := last.Sub(first).Seconds()
-
-		if totalSeconds <= 0 {
-			continue
-		}
-
-		position :=
-			point.Date.Sub(first).Seconds() /
-				totalSeconds
-
-		x := int(
-			position *
-				float64(chartWidth-1),
-		)
-
-		if x < 0 {
-			x = 0
-		}
-
-		if x >= chartWidth {
-			x = chartWidth - 1
-		}
-
-		buckets[x] = append(
-			buckets[x],
-			point.Rate,
-		)
-	}
-
-	// Plot each horizontal bucket.
-	for x, bucket := range buckets {
-		if len(bucket) == 0 {
-			continue
-		}
-
-		var sum float64
-
-		for _, value := range bucket {
-			sum += value
-		}
-
-		value := sum / float64(len(bucket))
-
-		normalized :=
-			(value - minRate) /
-				(maxRate - minRate)
-
-		y := chartHeight -
-			1 -
-			int(
-				normalized*
-					float64(chartHeight-1),
-			)
-
-		if y < 0 {
-			y = 0
-		}
-
-		if y >= chartHeight {
-			y = chartHeight - 1
-		}
-
-		canvas[y][x] = '.'
-	}
-
-	// Guarantee that the first and last observations are visible.
-	plotPoint := func(point HistoryPoint) {
-		first := history[0].Date
-		last := history[len(history)-1].Date
-
-		totalSeconds := last.Sub(first).Seconds()
-
-		if totalSeconds <= 0 {
-			return
-		}
-
-		position :=
-			point.Date.Sub(first).Seconds() /
-				totalSeconds
-
-		x := int(
-			position *
-				float64(chartWidth-1),
-		)
-
-		if x < 0 {
-			x = 0
-		}
-
-		if x >= chartWidth {
-			x = chartWidth - 1
-		}
-
-		normalized :=
-			(point.Rate - minRate) /
-				(maxRate - minRate)
-
-		y := chartHeight -
-			1 -
-			int(
-				normalized*
-					float64(chartHeight-1),
-			)
-
-		if y < 0 {
-			y = 0
-		}
-
-		if y >= chartHeight {
-			y = chartHeight - 1
-		}
-
-		canvas[y][x] = '.'
-	}
-
-	plotPoint(history[0])
-	plotPoint(history[len(history)-1])
-
-	for y := 0; y < chartHeight; y++ {
-		lines[y] = string(canvas[y])
-	}
-
-	return lines
-}
-
-func buildMonthAxis(history []HistoryPoint) string {
-	if len(history) < 2 {
-		return fmt.Sprintf(
-			"%-*s",
-			chartWidth,
-			"",
-		)
-	}
-
-	first := history[0].Date
-	last := history[len(history)-1].Date
-
-	type monthTick struct {
-		position int
-		label    string
-	}
-
-	var ticks []monthTick
-
-	// Start at the first day of the first month.
-	current := time.Date(
-		first.Year(),
-		first.Month(),
-		1,
-		0,
-		0,
-		0,
-		0,
-		first.Location(),
-	)
-
-	for !current.After(last) {
-		totalSeconds := last.Sub(first).Seconds()
-
-		position := 0
-
-		if totalSeconds > 0 {
-			position = int(
-				current.Sub(first).Seconds() /
-					totalSeconds *
-					float64(chartWidth-1),
-			)
-		}
-
-		if position < 0 {
-			position = 0
-		}
-
-		if position >= chartWidth {
-			position = chartWidth - 1
-		}
-
-		ticks = append(
-			ticks,
-			monthTick{
-				position: position,
-				label: current.Format("01/2006"),
-			},
-		)
-
-		current = current.AddDate(0, 1, 0)
-	}
-
-	// Build the tick row.
-	row := make([]rune, chartWidth)
-
-	for i := range row {
-		row[i] = ' '
-	}
-
-	// Put a vertical tick at every month boundary.
-	for _, tick := range ticks {
-		if tick.position >= 0 &&
-			tick.position < chartWidth {
-			row[tick.position] = '|'
-		}
-	}
-
-	// We have limited room. Put month labels on a separate row
-	// and make them fit without overlapping where possible.
-	labelRow := make([]rune, chartWidth)
-
-	for i := range labelRow {
-		labelRow[i] = ' '
-	}
-
-	for _, tick := range ticks {
-		label := tick.label
-
-		// Keep MM/YYYY intact. If there isn't enough room for the
-		// whole label, skip that tick rather than producing garbage.
-		labelWidth := len([]rune(label))
-
-		start := tick.position - labelWidth/2
-
-		if start < 0 {
-			start = 0
-		}
-
-		if start+labelWidth > chartWidth {
-			start = chartWidth - labelWidth
-		}
-
-		if start < 0 {
-			continue
-		}
-
-		// Don't overwrite an already-present label.
-		canPlace := true
-
-		for i := 0; i < labelWidth; i++ {
-			if labelRow[start+i] != ' ' {
-				canPlace = false
-				break
-			}
-		}
-
-		if !canPlace {
-			continue
-		}
-
-		for i, char := range []rune(label) {
-			labelRow[start+i] = char
-		}
-	}
-
-	return string(labelRow)
-}
-
-
-// chartPanel creates one compact history column.
-func chartPanel(
-	currency string,
-	history []HistoryPoint,
-) []string {
-	panel := make([]string, 0)
-
-	// Header.
-	header := fmt.Sprintf(
-		"%-18s",
-		currency+"  3M",
-	)
-
-	panel = append(
-		panel,
-		headerStyle(header),
-	)
-
-	// Chart itself.
-	chart := buildChart(history)
-
-	for _, line := range chart {
-		panel = append(
-			panel,
-			rateStyle(
-				fmt.Sprintf(
-					"%-18s",
-					line,
-				),
-			),
-		)
-	}
-
-	// Month tick row.
-	panel = append(
-		panel,
-		rateStyle(
-			buildMonthAxis(history),
-		),
-	)
-
-	return panel
-}
-
-// printHistoryRow prints:
-//
-// [ TABLE ] [ EUR ] [ GBP ] [ USD ]
-//
-// Everything is kept in ONE horizontal row.
-func printHistoryRow(
-	targets []string,
-	rates map[string]float64,
-	amount float64,
-	base string,
-	histories map[string][]HistoryPoint,
-) {
-	const (
-		tableWidth = 52
-		panelWidth = chartWidth + 2
-		gap        = "  "
-	)
-
-	title := fmt.Sprintf(
-		"Currency Exchange converting %.2f %s",
-		amount,
-		strings.ToUpper(base),
-	)
-
-	fmt.Println()
-	fmt.Println(titleStyle(title))
-	fmt.Println()
-
-	// ------------------------------------------------------------
-	// TABLE
-	// ------------------------------------------------------------
-
-	tableLines := make([]string, 0)
-
-	tableLines = append(
-		tableLines,
-		borderStyle(
-			"┌───────────────────────────────┬────────────────────┐",
-		),
-	)
-
-	col1Header := headerStyle(
-		fmt.Sprintf(
-			" %-30s",
-			"Converted Value",
-		),
-	)
-
-	col2Header := headerStyle(
-		fmt.Sprintf(
-			" %-19s",
-			fmt.Sprintf(
-				"Rate (1 %s = X)",
-				strings.ToUpper(base),
-			),
-		),
-	)
-
-	tableLines = append(
-		tableLines,
-		borderStyle("│")+
-			col1Header+
-			borderStyle("│")+
-			col2Header+
-			borderStyle("│"),
-	)
-
-	tableLines = append(
-		tableLines,
-		borderStyle(
-			"├───────────────────────────────┼────────────────────┤",
-		),
-	)
-
-	for _, curr := range targets {
-		currUpper := strings.ToUpper(curr)
-
-		rate, ok := rates[currUpper]
-
-		if !ok {
-			col1 := errorStyle(
-				fmt.Sprintf(
-					" %-30s",
-					"N/A",
-				),
-			)
-
-			col2 := errorStyle(
-				fmt.Sprintf(
-					" %-19s",
-					"Currency not found",
-				),
-			)
-
-			tableLines = append(
-				tableLines,
-				borderStyle("│")+
-					col1+
-					borderStyle("│")+
-					col2+
-					borderStyle("│"),
-			)
-
-			continue
-		}
-
-		converted := amount * rate
-
-		valueText := fmt.Sprintf(
-			" %s %s",
-			formatNumber(converted),
-			currUpper,
-		)
-
-		rateText := fmt.Sprintf(
-			" 1 %s = %.4f %s",
-			strings.ToUpper(base),
-			rate,
-			currUpper,
-		)
-
-		col1 := valueStyle(
-			fmt.Sprintf(
-				"%-31s",
-				valueText,
-			),
-		)
-
-		col2 := rateStyle(
-			fmt.Sprintf(
-				"%-20s",
-				rateText,
-			),
-		)
-
-		tableLines = append(
-			tableLines,
-			borderStyle("│")+
-				col1+
-				borderStyle("│")+
-				col2+
-				borderStyle("│"),
-		)
-	}
-
-	tableLines = append(
-		tableLines,
-		borderStyle(
-			"└───────────────────────────────┴────────────────────┘",
-		),
-	)
-
-	// ------------------------------------------------------------
-	// THREE HISTORY COLUMNS
-	// ------------------------------------------------------------
-
-	historyTargets := make([]string, 0, 3)
-
-	for _, target := range targets {
-		if len(historyTargets) >= 3 {
-			break
-		}
-
-		historyTargets = append(
-			historyTargets,
-			strings.ToUpper(target),
-		)
-	}
-
-	panels := make([][]string, 0, 3)
-
-	for _, currency := range historyTargets {
-		panels = append(
-			panels,
-			chartPanel(
-				currency,
-				histories[currency],
-			),
-		)
-	}
-
-	panelHeight := chartHeight + 3
-
-	totalRows := len(tableLines)
-
-	if panelHeight > totalRows {
-		totalRows = panelHeight
-	}
-
-	// ------------------------------------------------------------
-	// ONE HORIZONTAL ROW
-	// ------------------------------------------------------------
-
-	for row := 0; row < totalRows; row++ {
-		// Table.
-		if row < len(tableLines) {
-			fmt.Print(tableLines[row])
-		} else {
-			fmt.Print(
-				strings.Repeat(
-					" ",
-					tableWidth,
-				),
-			)
-		}
-
-		fmt.Print(gap)
-
-		// EUR / GBP / USD panels.
-		for i, panel := range panels {
-			if i > 0 {
-				fmt.Print(gap)
-			}
-
-			switch {
-			case row == 0:
-				fmt.Print(
-					borderStyle(
-						"┌"+
-							strings.Repeat(
-								"─",
-								chartWidth,
-							)+
-							"┐",
-					),
-				)
-
-			case row == panelHeight-1:
-				fmt.Print(
-					borderStyle(
-						"└"+
-							strings.Repeat(
-								"─",
-								chartWidth,
-							)+
-							"┘",
-					),
-				)
-
-			default:
-				contentRow := row - 1
-
-				content := ""
-
-				if contentRow >= 0 &&
-					contentRow < len(panel) {
-					content = panel[contentRow]
-				}
-
-				content = padANSI(
-					content,
-					chartWidth,
-				)
-
-				fmt.Print(
-					borderStyle("│")+
-						content+
-						borderStyle("│"),
-				)
-			}
-		}
-
-		fmt.Println()
-	}
-
-	fmt.Println()
-}
-
-// printTable is the normal output.
+// printTable displays the conversion in a formatted table using go-pretty.
 func printTable(
 	targets []string,
 	rates map[string]float64,
 	amount float64,
 	base string,
 ) {
-	title := fmt.Sprintf(
-		"Currency Exchange converting %.2f %s",
-		amount,
-		strings.ToUpper(base),
-	)
+	// Print title row
+	printTitle(amount, base)
 
-	fmt.Println()
-	fmt.Println(titleStyle(title))
-	fmt.Println()
+	// Create table with go-pretty
+	t := table.NewWriter()
+	t.SetOutputMirror(os.Stdout)
+	t.SetStyle(table.StyleRounded)
 
-	topBorder := borderStyle(
-		"┌───────────────────────────────┬────────────────────┐",
-	)
+	// Set alignment - converted and rate columns right-aligned
+	t.SetColumnConfigs([]table.ColumnConfig{
+		{Number: 1, Align: text.AlignLeft, AlignFooter: text.AlignLeft, AlignHeader: text.AlignLeft},  // Currency
+		{Number: 2, Align: text.AlignRight, AlignFooter: text.AlignRight, AlignHeader: text.AlignRight}, // Converted
+		{Number: 3, Align: text.AlignRight, AlignFooter: text.AlignRight, AlignHeader: text.AlignRight}, // Rate
+		// Enable max width to handle large numbers
+		{Number: 2, WidthMax: 20},
+		// Use transformers to apply colors - format first, then wrap with colors
+		{Number: 1, Transformer: text.Transformer(func(val interface{}) string {
+			if str, ok := val.(string); ok {
+				// Check if this looks like a currency code (3 letters, all caps)
+				if len(str) == 3 && str == strings.ToUpper(str) {
+					return valueStyle(str)
+				}
+			}
+			return fmt.Sprintf("%v", val)
+		})},
+		{Number: 2, Transformer: text.Transformer(func(val interface{}) string {
+			return valueStyle(fmt.Sprintf("%v", val))
+		})},
+		{Number: 3, Transformer: text.Transformer(func(val interface{}) string {
+			return rateStyle(fmt.Sprintf("%v", val))
+		})},
+	})
 
-	headerBorder := borderStyle(
-		"├───────────────────────────────┼────────────────────┤",
-	)
+	// Set headers with colors
+	t.AppendHeader(table.Row{
+		headerStyle("Currency"),
+		headerStyle("Converted"),
+		headerStyle("Rate"),
+	})
+	t.AppendSeparator()
 
-	bottomBorder := borderStyle(
-		"└───────────────────────────────┴────────────────────┘",
-	)
-
-	leftPipe := borderStyle("│")
-	rightPipe := borderStyle("│")
-
-	fmt.Println(topBorder)
-
-	col1Header := headerStyle(
-		fmt.Sprintf(
-			" %-30s",
-			"Converted Value",
-		),
-	)
-
-	col2Header := headerStyle(
-		fmt.Sprintf(
-			" %-19s",
-			fmt.Sprintf(
-				"Rate (1 %s = X)",
-				strings.ToUpper(base),
-			),
-		),
-	)
-
-	fmt.Printf(
-		"%s%s%s%s%s\n",
-		leftPipe,
-		col1Header,
-		leftPipe,
-		col2Header,
-		rightPipe,
-	)
-
-	fmt.Println(headerBorder)
-
+	// Build data rows (colors will be applied by transformers)
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
-
 		rate, ok := rates[currUpper]
 
 		if !ok {
-			col1 := errorStyle(
-				fmt.Sprintf(
-					" %-30s",
-					"N/A",
-				),
-			)
-
-			col2 := errorStyle(
-				fmt.Sprintf(
-					" %-19s",
-					"Currency not found",
-				),
-			)
-
-			fmt.Printf(
-				"%s%s%s%s%s\n",
-				leftPipe,
-				col1,
-				leftPipe,
-				col2,
-				rightPipe,
-			)
-
+			t.AppendRow(table.Row{currUpper, "N/A", "Not found"})
 			continue
 		}
 
 		converted := amount * rate
-
-		valueWithCurrency := fmt.Sprintf(
-			"%s %s",
+		t.AppendRow(table.Row{
+			currUpper,
 			formatNumber(converted),
-			currUpper,
-		)
-
-		rateStr := fmt.Sprintf(
-			"1 %s = %.4f %s",
-			strings.ToUpper(base),
-			rate,
-			currUpper,
-		)
-
-		col1 := valueStyle(
-			fmt.Sprintf(
-				" %-30s",
-				valueWithCurrency,
-			),
-		)
-
-		col2 := rateStyle(
-			fmt.Sprintf(
-				" %-19s",
-				rateStr,
-			),
-		)
-
-		fmt.Printf(
-			"%s%s%s%s%s\n",
-			leftPipe,
-			col1,
-			leftPipe,
-			col2,
-			rightPipe,
-		)
+			fmt.Sprintf("%.4f", rate),
+		})
 	}
 
-	fmt.Println(bottomBorder)
+	// Render the table
+	t.Render()
 	fmt.Println()
 }
 
-// printCards preserves the existing cards format.
-func printCards(
+// printTitle prints the title row with amount and base currency
+func printTitle(amount float64, base string) {
+	baseUpper := strings.ToUpper(base)
+	amountStr := formatNumber(amount)
+	fmt.Printf("%s %s\n", valueStyle(amountStr), headerStyle(baseUpper))
+}
+
+// printCSV displays the conversion in CSV format.
+func printCSV(
 	targets []string,
 	rates map[string]float64,
 	amount float64,
 	base string,
 ) {
-	title := fmt.Sprintf(
-		"Currency Exchange converting %.2f %s",
-		amount,
-		strings.ToUpper(base),
-	)
+	dateStr := time.Now().Format("2006-01-02")
+	baseUpper := strings.ToUpper(base)
 
-	fmt.Println()
-	fmt.Println(titleStyle(title))
-	fmt.Println()
+	// Print header with new column order
+	fmt.Println("amount;currency_from;currency_to;rate;converted;date")
 
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
-
 		rate, ok := rates[currUpper]
 
 		if !ok {
-			fmt.Println(
-				borderStyle(
-					"┌────────────────────────────────┐",
-				),
-			)
-
-			fmt.Printf(
-				"%s %s%s\n",
-				borderStyle("│"),
-				errorStyle(
-					fmt.Sprintf(
-						"Not found: %s",
-						currUpper,
-					),
-				),
-				borderStyle(" │"),
-			)
-
-			fmt.Println(
-				borderStyle(
-					"└────────────────────────────────┘",
-				),
-			)
-
-			fmt.Println()
+			fmt.Printf("%s;%s;%s;%s;%s;%s\n", formatNumber(amount), baseUpper, currUpper, "N/A", "N/A", dateStr)
 			continue
 		}
 
 		converted := amount * rate
-
-		fmt.Println(
-			borderStyle(
-				"┌────────────────────────────────┐",
-			),
-		)
-
-		fmt.Printf(
-			"%s %s%-10s%s %s\n",
-			borderStyle("│"),
-			headerStyle(""),
-			currUpper,
-			headerStyle(""),
-			borderStyle(" │"),
-		)
-
-		fmt.Printf(
-			"%s Converted: %s%-15s%s %s\n",
-			borderStyle("│"),
-			valueStyle(""),
-			formatNumber(converted),
-			valueStyle(""),
-			borderStyle(" │"),
-		)
-
-		fmt.Printf(
-			"%s Rate: %s1 %s = %.4f %s%s %s\n",
-			borderStyle("│"),
-			rateStyle(""),
-			strings.ToUpper(base),
-			rate,
-			currUpper,
-			strings.Repeat(
-				" ",
-				maxInt(1, 11-len(currUpper)),
-			),
-			borderStyle(" │"),
-		)
-
-		fmt.Println(
-			borderStyle(
-				"└────────────────────────────────┘",
-			),
-		)
-
-		fmt.Println()
+		fmt.Printf("%s;%s;%s;%.4f;%s;%s\n", formatNumber(amount), baseUpper, currUpper, rate, formatNumber(converted), dateStr)
 	}
 }
 
-// printList preserves the existing list format.
-func printList(
+// printJSON displays the conversion in JSON format.
+func printJSON(
 	targets []string,
 	rates map[string]float64,
 	amount float64,
 	base string,
 ) {
-	title := fmt.Sprintf(
-		"Currency Exchange converting %.2f %s",
-		amount,
-		strings.ToUpper(base),
-	)
+	baseUpper := strings.ToUpper(base)
+	dateStr := time.Now().Format("2006-01-02")
 
-	fmt.Println()
-	fmt.Println(titleStyle(title))
-	fmt.Println()
+	output := JSONOutput{
+		Amount: formatNumber(amount),
+		Base:   baseUpper,
+		Date:   dateStr,
+		Rates:  []ConversionResult{},
+	}
 
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
-
 		rate, ok := rates[currUpper]
 
 		if !ok {
-			fmt.Printf(
-				"  %s%-6s%s → %s\n",
-				headerStyle(""),
-				currUpper,
-				headerStyle(""),
-				errorStyle("N/A"),
-			)
-
+			// Skip currencies not found
 			continue
 		}
 
 		converted := amount * rate
-
-		fmt.Printf(
-			"  %s%-6s%s → %s%-15s%s  %s\n",
-			headerStyle(""),
-			currUpper,
-			headerStyle(""),
-			valueStyle(""),
-			formatNumber(converted),
-			valueStyle(""),
-			rateStyle(
-				fmt.Sprintf(
-					"(1 %s = %.4f %s)",
-					strings.ToUpper(base),
-					rate,
-					currUpper,
-				),
-			),
-		)
+		output.Rates = append(output.Rates, ConversionResult{
+			Currency:  currUpper,
+			Converted: formatNumber(converted),
+			Rate:      fmt.Sprintf("%.4f", rate),
+		})
 	}
 
-	fmt.Println()
+	jsonData, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		fmt.Printf("Error: failed to generate JSON: %v\n", err)
+		return
+	}
+
+	fmt.Println(string(jsonData))
 }
 
-// printMinimal preserves the existing minimal format.
+// printNumber displays only the converted values as plain numbers.
+func printNumber(
+	targets []string,
+	rates map[string]float64,
+	amount float64,
+	base string,
+) {
+	var results []string
+
+	for _, curr := range targets {
+		currUpper := strings.ToUpper(curr)
+		rate, ok := rates[currUpper]
+
+		if !ok {
+			results = append(results, "N/A")
+			continue
+		}
+
+		converted := amount * rate
+		// Format without thousand separators
+		results = append(results, fmt.Sprintf("%.2f", converted))
+	}
+
+	fmt.Println(strings.Join(results, " "))
+}
+
+// printMinimal displays the conversion in a minimal format.
 func printMinimal(
 	targets []string,
 	rates map[string]float64,
 	amount float64,
 	base string,
 ) {
-	titleLine := fmt.Sprintf(
-		"%.2f %s →",
-		amount,
-		strings.ToUpper(base),
-	)
+	baseUpper := strings.ToUpper(base)
 
 	fmt.Println()
-	fmt.Println(titleStyle(titleLine))
+	fmt.Println(valueStyle(formatNumber(amount)) + " " + headerStyle(baseUpper))
+	fmt.Println()
 
-	var results []string
+	// Find max width for converted values to align the "@" column
+	maxConvertedWidth := 0
+	for _, curr := range targets {
+		currUpper := strings.ToUpper(curr)
+		if rate, ok := rates[currUpper]; ok {
+			converted := amount * rate
+			convertedStr := formatNumber(converted)
+			if len(convertedStr) > maxConvertedWidth {
+				maxConvertedWidth = len(convertedStr)
+			}
+		}
+	}
+	// Ensure minimum width for "N/A" case
+	if maxConvertedWidth < 3 {
+		maxConvertedWidth = 3
+	}
 
 	for _, curr := range targets {
 		currUpper := strings.ToUpper(curr)
-
 		rate, ok := rates[currUpper]
 
 		if !ok {
-			results = append(
-				results,
-				errorStyle(currUpper+"=N/A"),
-			)
-
+			fmt.Printf("  %-5s  %s\n", errorStyle(currUpper), errorStyle("N/A"))
 			continue
 		}
 
 		converted := amount * rate
-
-		results = append(
-			results,
-			valueStyle(currUpper)+
-				"="+
-				formatNumber(converted),
-		)
+		convertedStr := formatNumber(converted)
+		// Right-align converted values with proper spacing before "@"
+		fmt.Printf("  %-5s  %s  @  %s\n", valueStyle(currUpper), valueStyle(fmt.Sprintf("%"+strconv.Itoa(maxConvertedWidth)+"s", convertedStr)), rateStyle(fmt.Sprintf("%.4f", rate)))
 	}
 
-	fmt.Printf(
-		"  %s\n\n",
-		strings.Join(
-			results,
-			"  |  ",
-		),
-	)
+	fmt.Println()
 }
 
 // printResults chooses the output format.
@@ -1396,56 +553,26 @@ func printResults(
 	amount float64,
 	base string,
 	format string,
-	history bool,
 ) {
-	// History is specifically designed for the table layout.
-	if history && format == "table" {
-		histories, err := getHistoricalRates(
-			base,
-			targets,
-		)
-
-		if err != nil {
-			fmt.Println()
-			fmt.Println(
-				errorStyle(
-					"Unable to load history: "+err.Error(),
-				),
-			)
-
-			// Still show the normal conversion.
-			printTable(
-				targets,
-				rates,
-				amount,
-				base,
-			)
-
-			return
-		}
-
-		printHistoryRow(
-			targets,
-			rates,
-			amount,
-			base,
-			histories,
-		)
-
-		return
-	}
-
 	switch format {
-	case "cards":
-		printCards(
+	case "csv":
+		printCSV(
 			targets,
 			rates,
 			amount,
 			base,
 		)
 
-	case "list":
-		printList(
+	case "json":
+		printJSON(
+			targets,
+			rates,
+			amount,
+			base,
+		)
+
+	case "number":
+		printNumber(
 			targets,
 			rates,
 			amount,
@@ -1481,43 +608,32 @@ func maxInt(a, b int) int {
 func printHelp() {
 	fmt.Println("Currency Exchange CLI - Convert between currencies")
 	fmt.Println()
+	fmt.Println("VERSION:")
+	fmt.Printf("  cex %s\n", Version)
+	fmt.Println()
 	fmt.Println("USAGE:")
 	fmt.Println("  cex [options] <amount> <from_currency> to <to_currency1> <to_currency2> ...")
 	fmt.Println()
 	fmt.Println("EXAMPLES:")
 	fmt.Println("  cex 100 czk to pln eur usd")
 	fmt.Println("  cex 700k chf to czk")
-	fmt.Println("  cex -theme sunset 50 usd to gbp jpy cad")
-	fmt.Println("  cex -h 100 czk to eur gbp usd")
+	fmt.Println("  cex -t sunset 50 usd to gbp jpy cad")
+	fmt.Println("  cex 100 -v usd to eur")
 	fmt.Println()
 	fmt.Println("OPTIONS:")
-	fmt.Println("  -h")
-	fmt.Println("      Show 3-month rate history.")
-	fmt.Println("      History is displayed as 3 compact charts")
-	fmt.Println("      next to the conversion table.")
+	fmt.Println("  -v, --version")
+	fmt.Println("      Show version information.")
 	fmt.Println()
-	fmt.Println("  -theme string")
+	fmt.Println("  -t, -theme, --theme string")
 	fmt.Println("      Color theme (default \"ocean\")")
 	fmt.Println("      Available: ocean, sunset, forest, neon")
 	fmt.Println()
-	fmt.Println("  -format string")
-	fmt.Println("      Display format (default \"table\")")
-	fmt.Println("      Available: table, cards, list, minimal")
+	fmt.Println("  -f, -format, --format string")
+	fmt.Println("      Output format (default \"table\")")
+	fmt.Println("      Available: table, minimal, csv, json, number")
 	fmt.Println()
-	fmt.Println("  -help")
+	fmt.Println("  -help, --help")
 	fmt.Println("      Show this help.")
-	fmt.Println()
-	fmt.Println("  --help")
-	fmt.Println("      Show this help.")
-	fmt.Println()
-	fmt.Println("HISTORY:")
-	fmt.Println("  Uses the free Frankfurter API.")
-	fmt.Println("  No API key or account is required.")
-	fmt.Println("  Historical rates cover approximately the")
-	fmt.Println("  previous 3 months.")
-	fmt.Println()
-	fmt.Println("  History is daily reference-rate data, so")
-	fmt.Println("  weekends and holidays may have no new point.")
 	fmt.Println()
 	fmt.Println("THEME PREVIEW:")
 	fmt.Println("  Ocean:   Blues and cyans - professional look")
@@ -1525,16 +641,20 @@ func printHelp() {
 	fmt.Println("  Forest:  Greens and earthy tones")
 	fmt.Println("  Neon:    Bright high-contrast colors")
 	fmt.Println()
+	fmt.Println("FORMAT PREVIEW:")
+	fmt.Println("  table:   Formatted table with headers")
+	fmt.Println("  minimal: Compact format with currency codes")
+	fmt.Println("  csv:     Semicolon-delimited values with header")
+	fmt.Println("  json:    Structured JSON output")
+	fmt.Println("  number:  Only converted values (space-separated numbers)")
+	fmt.Println()
 	fmt.Println("AMOUNT FORMAT:")
 	fmt.Println("  Supports 'k' suffix for thousands")
 	fmt.Println("  (e.g., 700k = 700,000)")
 }
 
 func main() {
-	// IMPORTANT:
-	//
-	// We use -h for HISTORY instead of Go's default help flag.
-	// Handle help aliases before flag.Parse().
+	// Check for help flags first
 	for _, arg := range os.Args[1:] {
 		if arg == "-help" || arg == "--help" {
 			printHelp()
@@ -1542,95 +662,134 @@ func main() {
 		}
 	}
 
-	flag.BoolVar(
-		&showHistory,
-		"h",
-		false,
-		"Show 3-month rate history",
-	)
+	// Parse flags (they can appear anywhere in the command line)
+	config := parseFlags(os.Args[1:])
 
-	flag.StringVar(
-		&themeName,
-		"theme",
-		"ocean",
-		"Color theme: ocean, sunset, forest, neon",
-	)
+	// Handle version flag
+	if config.showVersion {
+		fmt.Printf("cex %s\n", Version)
+		return
+	}
 
-	flag.StringVar(
-		&displayFormat,
-		"format",
-		"table",
-		"Display format: table, cards, list, minimal",
-	)
+	// Initialize styles with the parsed theme
+	themeName = config.themeName
+	displayFormat = config.format
 
-	flag.Usage = printHelp
+	// Validate theme value
+	validThemes := map[string]bool{
+		"ocean":  true,
+		"sunset": true,
+		"forest": true,
+		"neon":   true,
+	}
+	if !validThemes[themeName] {
+		fmt.Printf("Error: invalid theme '%s'\n", themeName)
+		fmt.Println("Valid themes: ocean, sunset, forest, neon")
+		os.Exit(1)
+	}
 
-	if err := flag.CommandLine.Parse(
-		os.Args[1:],
-	); err != nil {
+	// Validate format value
+	validFormats := map[string]bool{
+		"table":   true,
+		"minimal": true,
+		"csv":     true,
+		"json":    true,
+		"number":  true,
+	}
+	if !validFormats[displayFormat] {
+		fmt.Printf("Error: invalid format '%s'\n", displayFormat)
+		fmt.Println("Valid formats: table, minimal, csv, json, short")
 		os.Exit(1)
 	}
 
 	initStyles(themeName)
 
-	args := flag.Args()
+	args := config.positional
 
-	if len(args) < 4 {
+	// Validate we have at least 3 arguments (amount, base, to)
+	if len(args) < 3 {
 		printHelp()
 		os.Exit(1)
 	}
 
+	// Parse amount
 	amount, err := parseAmount(args[0])
-
 	if err != nil {
-		fmt.Printf(
-			"Invalid amount: %s\n",
-			args[0],
-		)
-
+		fmt.Printf("Error: invalid amount '%s'\n", args[0])
+		fmt.Println("Amount should be a number (e.g., 100, 99.99)")
+		fmt.Println("You can use 'k' suffix for thousands (e.g., 100k = 100,000)")
 		os.Exit(1)
 	}
 
 	base := args[1]
 
-	if strings.ToLower(args[2]) != "to" {
-		fmt.Println(
-			"Error: expected 'to' as third argument",
-		)
-
-		fmt.Println(
-			"Usage: cex <amount> <from_currency> to <to_currency1> <to_currency2> ...",
-		)
-
+	// Validate "to" keyword (if we have a third argument)
+	if len(args) >= 3 && strings.ToLower(args[2]) != "to" {
+		fmt.Println("Error: expected 'to' as third argument")
+		fmt.Println()
+		fmt.Println("Usage: cex [options] <amount> <from_currency> to <to_currency1> <to_currency2> ...")
+		fmt.Println()
+		fmt.Println("Example: cex 100 usd to eur gbp")
 		os.Exit(1)
 	}
 
+	// Collect target currencies
 	var targets []string
-
 	for i := 3; i < len(args); i++ {
-		targets = append(
-			targets,
-			args[i],
-		)
+		targets = append(targets, args[i])
 	}
 
-	rates, err := getRates(base)
-
-	if err != nil {
-		fmt.Printf(
-			"Error: %v\n",
-			err,
-		)
-
+	// Validate that we have at least one target currency
+	if len(targets) == 0 {
+		fmt.Println("Error: no target currencies specified")
+		fmt.Println()
+		fmt.Println("Usage: cex [options] <amount> <from_currency> to <to_currency1> <to_currency2> ...")
+		fmt.Println()
+		fmt.Println("Example: cex 100 usd to eur gbp")
 		os.Exit(1)
 	}
 
+	// Fetch exchange rates
+	rates, err := getRates(base)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			fmt.Printf("Error: %v\n", err)
+			fmt.Println("Please use a valid 3-letter currency code (e.g., USD, EUR, GBP)")
+		} else {
+			fmt.Printf("Error: %v\n", err)
+		}
+		os.Exit(1)
+	}
+
+	// Check if base currency exists in the response
+	baseUpper := strings.ToUpper(base)
+	if _, exists := rates[baseUpper]; !exists && baseUpper != "USD" {
+		// USD is the implicit base in most APIs, so it might not be in the rates map
+		fmt.Printf("Error: currency '%s' not found\n", baseUpper)
+		fmt.Println("Please use a valid 3-letter currency code (e.g., USD, EUR, GBP)")
+		os.Exit(1)
+	}
+
+	// Count how many target currencies were actually found
+	validTargets := 0
+	for _, curr := range targets {
+		if _, exists := rates[strings.ToUpper(curr)]; exists {
+			validTargets++
+		}
+	}
+
+	if validTargets == 0 {
+		fmt.Println("Error: none of the specified currencies were found")
+		fmt.Println("Please use valid 3-letter currency codes (e.g., USD, EUR, GBP)")
+		os.Exit(1)
+	}
+
+	// Print results
 	printResults(
 		targets,
 		rates,
 		amount,
 		base,
 		displayFormat,
-		showHistory,
 	)
 }

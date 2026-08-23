@@ -1,20 +1,20 @@
 # Currency Exchange CLI
 
-A beautiful, colorful command-line tool for currency conversion with support for multiple display formats and themes.
+Why?
+A sim, colorful command-line tool for currency conversion with support for multiple display formats and themes.
 
 ## TODO
-- parse flags regardless of position
-- add -v to show version
-- fix release process
-- add line chart as history - each row separated by line and on the side, aligned, 3m history
-
-
+- add nice short videa, better shorter readme, write portions yuourself
+- better release process, then to homebrew!
+  - see how they do it https://github.com/xxczaki/cash-cli
+- support multiple APIs - there is newer version of the API we are using, also others
+- another feat - add swiss exchange currency for tax purpose, the ones I am using
 
 ## Features
 
 - Real-time exchange rates from exchangerate-api.com
 - 4 beautiful color themes: Ocean, Sunset, Forest, and Neon
-- Multiple display formats: Table, Cards, List, and Minimal
+- Multiple display formats: Table, Minimal, CSV, and Number
 - Smart number formatting: Thousand separators for easy reading
 - K suffix support: Use `700k` instead of `700000`
 - Multiple currency conversions in a single command
@@ -33,13 +33,6 @@ sudo mv cex /usr/local/bin/  # Optional: add to PATH
 ### From Binary
 
 Download the latest binary from the [Releases](https://github.com/janbenisek/currency-exchange/releases) page.
-
-### Homebrew (macOS/Linux)
-
-```bash
-brew tap janbenisek/currency-exchange
-brew install cex
-```
 
 ## Usage
 
@@ -61,19 +54,40 @@ cex 700k chf to czk
 # Convert to multiple currencies
 cex 50 usd to gbp jpy cad aud
 
-# Use sunset theme
-cex -theme sunset 100 eur to usd gbp
+# Use sunset theme (with shorthand)
+cex -t sunset 100 eur to usd gbp
 
-# Use list format
-cex -format list 100 usd to eur jpy
+# Use minimal format
+cex -f minimal 100 usd to eur jpy
+
+# Use CSV format
+cex -f csv 100 usd to eur gbp
+
+# Use number format (for scripts)
+cex -f number 100 usd to eur gbp
 
 # Combine theme and format
-cex -theme neon -format cards 200 gbp to usd eur chf
+cex -t neon -f csv 200 gbp to usd eur chf
+
+# Flags work anywhere in the command
+cex 100 -t forest usd to eur
+
+# Show version
+cex -v
 ```
 
 ## Options
 
-### `-theme` - Color Theme
+### `-v, --version` - Show Version
+
+Display the current version of cex.
+
+```bash
+$ cex -v
+cex 1.0.0
+```
+
+### `-t, --theme` - Color Theme
 
 Choose from 4 beautiful color themes:
 
@@ -86,16 +100,17 @@ Choose from 4 beautiful color themes:
 
 **Default:** `ocean`
 
-### `-format` - Display Format
+### `-f, --format` - Output Format
 
-Choose from 4 display formats:
+Choose from 4 output formats:
 
 | Format   | Description                              | Example                          |
 |----------|------------------------------------------|-----------------------------------|
-| `table`  | Clean two-column table with borders     | See examples below                |
-| `cards`  | Individual cards for each currency        | Good for single conversions      |
-| `list`   | Compact list format                      | Great for multiple currencies     |
-| `minimal`| Ultra-compact single line                | Quick reference                   |
+| `table`  | Formatted table with headers             | See examples below                |
+| `minimal`| Compact format with currency codes       | Quick reference                   |
+| `csv`    | Semicolon-delimited values with header  | For data processing              |
+| `json`    | `.json` formatted  | For data processing              |
+| `number` | Only converted values (space-separated) | Script integration               |
 
 **Default:** `table`
 
@@ -108,13 +123,11 @@ $ cex 700k chf to czk
 ```
 
 ```
-Currency Exchange converting 700000.00 CHF
-
-┌─────────────────────┬────────────────────┐
-│ Converted Value     │ Rate (1 CHF = X)   │
-├─────────────────────┼────────────────────┤
-│ 18,046,000.00 CZK  │ 1 CHF = 25.7800 CZK│
-└─────────────────────┴────────────────────┘
+╭──────────┬───────────────┬─────────╮
+│ CURRENCY │   CONVERTED  │   RATE  │
+├──────────┼───────────────┼─────────┤
+│ CZK      │ 18,046,000.00 │ 25.7800 │
+╰──────────┴───────────────┴─────────╯
 ```
 
 ### Multiple Currencies
@@ -124,73 +137,66 @@ $ cex 100 usd to eur gbp jpy
 ```
 
 ```
-Currency Exchange converting 100.00 USD
-
-┌─────────────────────┬────────────────────┐
-│ Converted Value     │ Rate (1 USD = X)   │
-├─────────────────────┼────────────────────┤
-│ 85.60 EUR          │ 1 USD = 0.8560 EUR │
-│ 73.30 GBP          │ 1 USD = 0.7330 GBP │
-│ 15,895.00 JPY      │ 1 USD = 158.9500 JPY│
-└─────────────────────┴────────────────────┘
+╭──────────┬───────────┬──────────╮
+│ CURRENCY │ CONVERTED │     RATE │
+├──────────┼───────────┼──────────┤
+│ EUR      │ 85.60     │   0.8560 │
+│ GBP      │ 73.30     │   0.7330 │
+│ JPY      │ 15,895.00 │ 158.9500 │
+╰──────────┴───────────┴──────────╯
 ```
 
 ### Sunset Theme
 
 ```bash
-$ cex -theme sunset 100 usd to eur gbp
+$ cex -t sunset 100 usd to eur gbp
 ```
 
 ```
-Currency Exchange converting 100.00 USD
-
-┌─────────────────────┬────────────────────┐
-│ Converted Value     │ Rate (1 USD = X)   │
-├─────────────────────┼────────────────────┤
-│ 85.60 EUR          │ 1 USD = 0.8560 EUR │
-│ 73.30 GBP          │ 1 USD = 0.7330 GBP │
-└─────────────────────┴────────────────────┘
-```
-
-### Cards Format
-
-```bash
-$ cex -format cards 100 usd to eur
-```
-
-```
-Currency Exchange converting 100.00 USD
-
-┌────────────────────────────────┐
-│ EUR                            │
-│ Converted: 85.60               │
-│ Rate: 1 USD = 0.8560 EUR       │
-└────────────────────────────────┘
-```
-
-### List Format
-
-```bash
-$ cex -format list 100 usd to eur gbp
-```
-
-```
-Currency Exchange converting 100.00 USD
-
-  EUR    → 85.60            (1 USD = 0.8560 EUR)
-  GBP    → 73.30            (1 USD = 0.7330 GBP)
+╭──────────┬───────────┬────────╮
+│ CURRENCY │ CONVERTED │  RATE  │
+├──────────┼───────────┼────────┤
+│ EUR      │ 85.60     │ 0.8560 │
+│ GBP      │ 73.30     │ 0.7330 │
+╰──────────┴───────────┴────────╯
 ```
 
 ### Minimal Format
 
 ```bash
-$ cex -format minimal 100 usd to eur gbp
+$ cex -f minimal 100 usd to eur gbp
 ```
 
 ```
-100.00 USD →
-  EUR=85.60  |  GBP=73.30
+100.00 USD
+
+  EUR        85.60  @  0.8560
+  GBP        73.30  @  0.7330
 ```
+
+### CSV Format
+
+```bash
+$ cex -f csv 100 usd to eur gbp
+```
+
+```
+amount;currency_from;currency_to;rate;converted;date
+100.00;USD;EUR;0.8560;85.60;2026-08-23
+100.00;USD;GBP;0.7330;73.30;2026-08-23
+```
+
+### Number Format
+
+```bash
+$ cex -f number 100 usd to eur gbp
+```
+
+```
+85.60 73.30
+```
+
+Perfect for scripting and automation.
 
 ## Features in Detail
 
@@ -200,7 +206,7 @@ Use `k` suffix for thousands to make large numbers more readable:
 
 ```bash
 cex 700k chf to czk    # Same as: cex 700000 chf to czk
-cex 1.5m usd to eur   # Supports decimals: 1.5m = 1,500,000
+cex 1.5k usd to eur   # Supports decimals: 1.5k = 1,500
 ```
 
 ### Number Formatting
@@ -236,6 +242,34 @@ go build -o cex .
 ## Contributing
 
 Contributions are welcome! Please feel free to submit a Pull Request.
+
+### Release Process
+
+To create a new release:
+
+1. **Update version in Makefile** (if using) or ensure the build process includes version info
+2. **Create a git tag**:
+   ```bash
+   git tag -a v1.x.x -m "Release v1.x.x"
+   git push origin v1.x.x
+   ```
+3. **GitHub Actions will automatically**:
+   - Build binaries for multiple platforms (darwin, linux, windows)
+   - Create a GitHub Release with the binaries
+   - Generate a checksums file
+
+4. **Manual steps (if needed)**:
+   - Update Homebrew formula (if maintaining one)
+   - Update documentation with new features
+   - Test the release binaries
+
+### Development
+
+To build locally with version info:
+
+```bash
+go build -ldflags "-X main.Version=dev" -o cex .
+```
 
 ## License
 
