@@ -5,19 +5,18 @@ A sim, colorful command-line tool for currency conversion with support for multi
 
 ## TODO
 - add nice short videa, better shorter readme, write portions yuourself
-- better release process, then to homebrew!
-  - see how they do it https://github.com/xxczaki/cash-cli
-- support multiple APIs - there is newer version of the API we are using, also others
 - another feat - add swiss exchange currency for tax purpose, the ones I am using
+- add release to homebrew (see how it is done https://github.com/xxczaki/cash-cli)
+- lint error in GH actions
 
 ## Features
 
-- Real-time exchange rates from exchangerate-api.com
-- 4 beautiful color themes: Ocean, Sunset, Forest, and Neon
-- Multiple display formats: Table, Minimal, CSV, and Number
-- Smart number formatting: Thousand separators for easy reading
-- K suffix support: Use `700k` instead of `700000`
-- Multiple currency conversions in a single command
+- **Multiple API providers**: Exchange Rates API (default), Fixer, Currency Layer, and Open Exchange Rates
+- **4 beautiful color themes**: Ocean, Sunset, Forest, and Neon
+- **Multiple display formats**: Table, Minimal, CSV, JSON, and Number
+- **Smart number formatting**: Thousand separators for easy reading
+- **K suffix support**: Use `700k` instead of `700000`
+- **Multiple currency conversions**: Convert to multiple currencies in a single command
 
 ## Installation
 
@@ -66,11 +65,19 @@ cex -f csv 100 usd to eur gbp
 # Use number format (for scripts)
 cex -f number 100 usd to eur gbp
 
-# Combine theme and format
-cex -t neon -f csv 200 gbp to usd eur chf
+# Use Fixer API provider
+export FIXER_API_KEY=your_key
+cex -a fixer 100 usd to eur gbp
+
+# Use CurrencyLayer provider
+export CURRENCYLAYER_API_KEY=your_key
+cex -a currencylayer 100 usd to eur
+
+# Combine theme, format, and API provider
+cex -t neon -f csv -a fixer 200 gbp to usd eur chf
 
 # Flags work anywhere in the command
-cex 100 -t forest usd to eur
+cex 100 -t forest -a exchangerates usd to eur
 
 # Show version
 cex -v
@@ -113,6 +120,101 @@ Choose from 4 output formats:
 | `number` | Only converted values (space-separated) | Script integration               |
 
 **Default:** `table`
+
+### `-a, --api` - API Provider
+
+Choose from 4 currency exchange rate APIs:
+
+| Provider            | Description                                    | API Key Required                         |
+|---------------------|------------------------------------------------|------------------------------------------|
+| `exchangerates`     | Exchange Rates API (v4 free, or v6 with key)  | Optional (`EXCHANGERATE_API_KEY` for v6) |
+| `fixer`             | Fixer.io API                                    | Yes (`FIXER_API_KEY`)                     |
+| `currencylayer`     | CurrencyLayer API                               | Yes (`CURRENCYLAYER_API_KEY`)            |
+| `openexchangerates` | Open Exchange Rates API                         | Yes (`OPENEXCHANGERATES_API_KEY`)         |
+
+**Default:** `exchangerates`
+
+#### Setting API Keys
+
+For providers that require API keys, set them as environment variables:
+
+```bash
+# Fixer.io
+export FIXER_API_KEY=your_key_here
+cex -a fixer 100 usd to eur
+
+# CurrencyLayer
+export CURRENCYLAYER_API_KEY=your_key_here
+cex -a currencylayer 100 usd to eur
+
+# Open Exchange Rates
+export OPENEXCHANGERATES_API_KEY=your_key_here
+cex -a openexchangerates 100 usd to eur
+```
+
+**Using a .env file:**
+
+For convenience, you can use a `.env` file to store your API keys:
+
+```bash
+# Copy the example file
+cp .env.example .env
+
+# Edit .env with your actual API keys
+nano .env  # or your preferred editor
+
+# Source the file in your shell
+source .env
+```
+
+⚠️ **Security Note:** The `.env` file is git-ignored for security. Never commit your API keys to version control.
+
+#### API Provider Details
+
+**Exchange Rates API** (`exchangerates`)
+- **v4**: Free tier with no API key required (up to 1,500 requests/month)
+- **v6**: Optional API key for higher limits and more features
+- Reliable rates for 170+ currencies
+- Updated every 60 seconds
+- Website: [exchangerate-api.com](https://www.exchangerate-api.com/)
+- **How to get API key (v6 - optional):**
+  1. Visit [exchangerate-api.com](https://www.exchangerate-api.com/)
+  2. Sign up for a free account
+  3. Your API key will be available in the dashboard
+  4. Free v6 tier: 10,000 requests/month (vs 1,500 for v4)
+  5. Set `EXCHANGERATE_API_KEY` environment variable to use v6
+
+**Fixer** (`fixer`)
+- Requires free API key from [fixer.io](https://fixer.io/)
+- Supports historical exchange rates
+- 170+ currencies available
+- **How to get API key:**
+  1. Visit [apilayer.com/fixer](https://apilayer.com/fixer)
+  2. Sign up for a free account (no credit card required)
+  3. Verify your email address
+  4. Your API key will be available in the dashboard
+  5. Free tier: 1,000 requests/month
+
+**Currency Layer** (`currencylayer`)
+- Requires free API key from [currencylayer.com](https://currencylayer.com/)
+- Live and historical forex rates
+- JSON API for exchange data
+- **How to get API key:**
+  1. Visit [currencylayer.com/product](https://currencylayer.com/product)
+  2. Sign up for a free account
+  3. Verify your email address
+  4. Your API access key will be in your account dashboard
+  5. Free tier: 1,000 requests/month
+
+**Open Exchange Rates** (`openexchangerates`)
+- Requires free API key from [openexchangerates.org](https://openexchangerates.org/)
+- Reliable, consistent exchange rate data
+- Used by startups and organizations worldwide
+- **How to get API key:**
+  1. Visit [openexchangerates.org/signup](https://openexchangerates.org/signup)
+  2. Sign up for a free account (no credit card required)
+  3. Your App ID (API key) will be displayed immediately and sent to your email
+  4. Free tier: 1,000 requests/month
 
 ## Output Examples
 
@@ -277,5 +379,9 @@ MIT License - see LICENSE file for details
 
 ## Acknowledgments
 
-- Exchange rates provided by [exchangerate-api.com](https://www.exchangerate-api.com/)
+- Exchange rates provided by multiple APIs:
+  - [Exchange Rate API](https://www.exchangerate-api.com/) (default)
+  - [Fixer.io](https://fixer.io/)
+  - [CurrencyLayer](https://currencylayer.com/)
+  - [Open Exchange Rates](https://openexchangerates.org/)
 - Built with Go and beautiful terminal output using ANSI colors

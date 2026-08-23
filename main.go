@@ -3,8 +3,6 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
 	"strconv"
 	"strings"
@@ -48,6 +46,7 @@ type Config struct {
 	showVersion bool
 	themeName   string
 	format      string
+	apiProvider string
 	positional  []string
 }
 
@@ -156,6 +155,7 @@ func parseFlags(args []string) Config {
 		showVersion: false,
 		themeName:   "ocean",
 		format:      "table",
+		apiProvider: "exchangerates",
 		positional:  make([]string, 0, len(args)),
 	}
 
@@ -175,6 +175,11 @@ func parseFlags(args []string) Config {
 				config.format = args[i+1]
 				i++ // skip next arg
 			}
+		case arg == "-a" || arg == "-api" || arg == "--api":
+			if i+1 < len(args) {
+				config.apiProvider = args[i+1]
+				i++ // skip next arg
+			}
 		case arg == "-help" || arg == "--help":
 			// Help is handled before parseFlags is called
 			config.positional = append(config.positional, arg)
@@ -184,40 +189,6 @@ func parseFlags(args []string) Config {
 	}
 
 	return config
-}
-
-// getRates gets the current rates.
-// This preserves your existing current-conversion behavior.
-func getRates(base string) (map[string]float64, error) {
-	client := &http.Client{
-		Timeout: httpTimeout,
-	}
-
-	resp, err := client.Get(apiURL + strings.ToUpper(base))
-	if err != nil {
-		return nil, fmt.Errorf("failed to fetch rates: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		if resp.StatusCode == http.StatusNotFound {
-			return nil, fmt.Errorf("currency '%s' not found", strings.ToUpper(base))
-		}
-		return nil, fmt.Errorf("API returned status %d", resp.StatusCode)
-	}
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read response: %w", err)
-	}
-
-	var rateResp RateResponse
-
-	if err := json.Unmarshal(body, &rateResp); err != nil {
-		return nil, fmt.Errorf("failed to parse response: %w", err)
-	}
-
-	return rateResp.Rates, nil
 }
 
 // parseAmount parses an amount and supports k.
@@ -618,6 +589,7 @@ func printHelp() {
 	fmt.Println("  cex 100 czk to pln eur usd")
 	fmt.Println("  cex 700k chf to czk")
 	fmt.Println("  cex -t sunset 50 usd to gbp jpy cad")
+	fmt.Println("  cex -a fixer 100 usd to eur")
 	fmt.Println("  cex 100 -v usd to eur")
 	fmt.Println()
 	fmt.Println("OPTIONS:")
@@ -631,6 +603,10 @@ func printHelp() {
 	fmt.Println("  -f, -format, --format string")
 	fmt.Println("      Output format (default \"table\")")
 	fmt.Println("      Available: table, minimal, csv, json, number")
+	fmt.Println()
+	fmt.Println("  -a, -api, --api string")
+	fmt.Println("      API provider (default \"exchangerates\")")
+	fmt.Println("      Available: exchangerates, fixer, currencylayer, openexchangerates")
 	fmt.Println()
 	fmt.Println("  -help, --help")
 	fmt.Println("      Show this help.")
@@ -647,6 +623,12 @@ func printHelp() {
 	fmt.Println("  csv:     Semicolon-delimited values with header")
 	fmt.Println("  json:    Structured JSON output")
 	fmt.Println("  number:  Only converted values (space-separated numbers)")
+	fmt.Println()
+	fmt.Println("API PROVIDERS:")
+	fmt.Println("  exchangerates:      Exchange Rates API (free, no API key required)")
+	fmt.Println("  fixer:              Fixer.io (requires FIXER_API_KEY env var)")
+	fmt.Println("  currencylayer:      CurrencyLayer (requires CURRENCYLAYER_API_KEY env var)")
+	fmt.Println("  openexchangerates:  Open Exchange Rates (requires OPENEXCHANGERATES_API_KEY env var)")
 	fmt.Println()
 	fmt.Println("AMOUNT FORMAT:")
 	fmt.Println("  Supports 'k' suffix for thousands")
@@ -702,6 +684,19 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Validate API provider value
+	validProviders := map[string]bool{
+		"exchangerates":      true,
+		"fixer":              true,
+		"currencylayer":      true,
+		"openexchangerates":  true,
+	}
+	if !validProviders[config.apiProvider] {
+		fmt.Printf("Error: invalid API provider '%s'\n", config.apiProvider)
+		fmt.Println("Valid providers: exchangerates, fixer, currencylayer, openexchangerates")
+		os.Exit(1)
+	}
+
 	initStyles(themeName)
 
 	args := config.positional
@@ -749,8 +744,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Create API provider
+	provider, err := NewProvider(APIProvider(config.apiProvider))
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		fmt.Println()
+		if strings.Contains(err.Error(), "API_KEY") {
+			fmt.Println("To use this provider, set the required API key as an environment variable:")
+			switch config.apiProvider {
+			case "fixer":
+				fmt.Println("  export FIXER_API_KEY=your_key_here")
+			case "currencylayer":
+				fmt.Println("  export CURRENCYLAYER_API_KEY=your_key_here")
+			case "openexchangerates":
+				fmt.Println("  export OPENEXCHANGERATES_API_KEY=your_key_here")
+			}
+		}
+		os.Exit(1)
+	}
+
 	// Fetch exchange rates
-	rates, err := getRates(base)
+	rates, err := getRates(base, provider)
 	if err != nil {
 		if strings.Contains(err.Error(), "not found") {
 			fmt.Printf("Error: %v\n", err)
