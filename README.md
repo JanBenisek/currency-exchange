@@ -6,7 +6,6 @@ A sim, colorful command-line tool for currency conversion with support for multi
 ## TODO
 - add nice short videa, better shorter readme, write portions yuourself
 - add release to homebrew (see how it is done https://github.com/xxczaki/cash-cli)
-- lint error in GH actions
 
 ## Features
 
