@@ -40,23 +40,23 @@ type ExchangeRatesProvider struct {
 
 // FixerProvider implements the Fixer.io API
 type FixerProvider struct {
-	client   *http.Client
-	apiKey   string
-	baseURL  string
+	client  *http.Client
+	apiKey  string
+	baseURL string
 }
 
 // CurrencyLayerProvider implements the CurrencyLayer API
 type CurrencyLayerProvider struct {
-	client   *http.Client
-	apiKey   string
-	baseURL  string
+	client  *http.Client
+	apiKey  string
+	baseURL string
 }
 
 // OpenExchangeRatesProvider implements the Open Exchange Rates API
 type OpenExchangeRatesProvider struct {
-	client   *http.Client
-	apiKey   string
-	baseURL  string
+	client  *http.Client
+	apiKey  string
+	baseURL string
 }
 
 // Response structures for different APIs
@@ -68,28 +68,28 @@ type ExchangeRatesResponse struct {
 
 // FixerResponse represents Fixer.io API response
 type FixerResponse struct {
-	Success bool                   `json:"success"`
-	Rates   map[string]float64    `json:"rates"`
-	Error   *FixerError           `json:"error,omitempty"`
+	Success bool               `json:"success"`
+	Rates   map[string]float64 `json:"rates"`
+	Error   *FixerError        `json:"error,omitempty"`
 }
 
 type FixerError struct {
-	Code    int    `json:"code"`
-	Type    string `json:"type"`
-	Info    string `json:"info"`
+	Code int    `json:"code"`
+	Type string `json:"type"`
+	Info string `json:"info"`
 }
 
 // CurrencyLayerResponse represents CurrencyLayer API response
 type CurrencyLayerResponse struct {
-	Success bool                   `json:"success"`
-	Quotes  map[string]float64     `json:"quotes"`
-	Error   *CurrencyLayerError    `json:"error,omitempty"`
+	Success bool                `json:"success"`
+	Quotes  map[string]float64  `json:"quotes"`
+	Error   *CurrencyLayerError `json:"error,omitempty"`
 }
 
 type CurrencyLayerError struct {
-	Code    int    `json:"code"`
-	Type    string `json:"type"`
-	Info    string `json:"info"`
+	Code int    `json:"code"`
+	Type string `json:"type"`
+	Info string `json:"info"`
 }
 
 // OpenExchangeRatesResponse represents Open Exchange Rates API response

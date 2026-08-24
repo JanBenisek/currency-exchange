@@ -234,7 +234,7 @@ func TestParseFlagsEdgeCases(t *testing.T) {
 			expected: Config{
 				showVersion: false,
 				themeName:   "ocean",
-				format:      "table", // No value after --format, stays default
+				format:      "table",                             // No value after --format, stays default
 				positional:  []string{"100", "usd", "to", "eur"}, // --format is consumed but has no value
 			},
 		},

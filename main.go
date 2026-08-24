@@ -13,7 +13,7 @@ import (
 )
 
 const (
-	apiURL     = "https://api.exchangerate-api.com/v4/latest/"
+	apiURL      = "https://api.exchangerate-api.com/v4/latest/"
 	httpTimeout = 15 * time.Second
 )
 
@@ -28,16 +28,16 @@ type RateResponse struct {
 
 // ConversionResult represents one currency conversion for JSON output.
 type ConversionResult struct {
-	Currency  string  `json:"currency"`
-	Converted string  `json:"converted"` // Use string to preserve formatting
-	Rate      string  `json:"rate"`      // Use string for consistent decimal places
+	Currency  string `json:"currency"`
+	Converted string `json:"converted"` // Use string to preserve formatting
+	Rate      string `json:"rate"`      // Use string for consistent decimal places
 }
 
 // JSONOutput represents the complete JSON output structure.
 type JSONOutput struct {
-	Amount string              `json:"amount"`
-	Base   string              `json:"base"`
-	Date   string              `json:"date"`
+	Amount string             `json:"amount"`
+	Base   string             `json:"base"`
+	Date   string             `json:"date"`
 	Rates  []ConversionResult `json:"rates"`
 }
 
@@ -686,10 +686,10 @@ func main() {
 
 	// Validate API provider value
 	validProviders := map[string]bool{
-		"exchangerates":      true,
-		"fixer":              true,
-		"currencylayer":      true,
-		"openexchangerates":  true,
+		"exchangerates":     true,
+		"fixer":             true,
+		"currencylayer":     true,
+		"openexchangerates": true,
 	}
 	if !validProviders[config.apiProvider] {
 		fmt.Printf("Error: invalid API provider '%s'\n", config.apiProvider)
