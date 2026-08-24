@@ -21,7 +21,7 @@ A sim, colorful command-line tool for currency conversion with support for multi
 
 ```bash
 # Add the tap
-brew tap janbenisek/tap
+brew tap janbenisek/currency-exchange
 
 # Install
 brew install cex
