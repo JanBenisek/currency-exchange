@@ -68,8 +68,8 @@ jobs:
           git remote set-url origin https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/janbenisek/homebrew-tap.git
 
           # Update the formula
-          cat > Formula/currency-exchange.rb << 'EOF'
-          class CurrencyExchange < Formula
+          cat > Formula/cex.rb << 'EOF'
+          class Cex < Formula
             desc "Simple CLI tool to convert currencies"
             homepage "https://github.com/janbenisek/currency-exchange"
             version "VERSION_NUM"
@@ -89,26 +89,26 @@ jobs:
             end
             def install
               if Hardware::CPU.arm?
-                bin.install "cex-darwin-arm64" => "currency-exchange"
+                bin.install "cex-darwin-arm64" => "cex"
               elsif Hardware::CPU.intel?
-                bin.install "cex-darwin-amd64" => "currency-exchange"
+                bin.install "cex-darwin-amd64" => "cex"
               elsif OS.linux?
-                bin.install "cex-linux-amd64" => "currency-exchange"
+                bin.install "cex-linux-amd64" => "cex"
               end
             end
             test do
-              system bin/"currency-exchange", "1", "usd", "to", "eur"
+              system bin/"cex", "1", "usd", "to", "eur"
             end
           end
           EOF
 
           # Replace placeholders
-          sed -i '' "s/VERSION_NUM/$VERSION_NUM/g" Formula/currency-exchange.rb
-          sed -i '' "s/SHA256_ARM64/$SHA256_ARM64/g" Formula/currency-exchange.rb
-          sed -i '' "s/SHA256_AMD64/$SHA256_AMD64/g" Formula/currency-exchange.rb
-          sed -i '' "s/SHA256_LINUX/$SHA256_LINUX/g" Formula/currency-exchange.rb
+          sed -i '' "s/VERSION_NUM/$VERSION_NUM/g" Formula/cex.rb
+          sed -i '' "s/SHA256_ARM64/$SHA256_ARM64/g" Formula/cex.rb
+          sed -i '' "s/SHA256_AMD64/$SHA256_AMD64/g" Formula/cex.rb
+          sed -i '' "s/SHA256_LINUX/$SHA256_LINUX/g" Formula/cex.rb
 
           # Commit and push
-          git add Formula/currency-exchange.rb
-          git commit -m "chore: update currency-exchange to $VERSION_NUM"
+          git add Formula/cex.rb
+          git commit -m "chore: update cex to $VERSION_NUM"
           git push origin main

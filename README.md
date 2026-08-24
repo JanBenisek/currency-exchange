@@ -24,13 +24,13 @@ A sim, colorful command-line tool for currency conversion with support for multi
 brew tap janbenisek/tap
 
 # Install
-brew install currency-exchange
+brew install cex
 ```
 
 To upgrade:
 
 ```bash
-brew upgrade currency-exchange
+brew upgrade cex
 ```
 
 ### From Source

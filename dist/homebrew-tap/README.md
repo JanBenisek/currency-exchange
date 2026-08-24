@@ -8,22 +8,22 @@ This is the Homebrew tap for [currency-exchange](https://github.com/janbenisek/c
 # Add the tap
 brew tap janbenisek/tap
 
-# Install currency-exchange
-brew install currency-exchange
+# Install cex
+brew install cex
 ```
 
 ## Updating
 
 ```bash
 # Upgrade to the latest version
-brew upgrade currency-exchange
+brew upgrade cex
 ```
 
 ## Uninstalling
 
 ```bash
 # Remove the formula
-brew uninstall currency-exchange
+brew uninstall cex
 
 # Remove the tap (optional)
 brew untap janbenisek/tap
@@ -31,20 +31,20 @@ brew untap janbenisek/tap
 
 ## Usage
 
-After installation, you can use the `currency-exchange` command:
+After installation, you can use the `cex` command:
 
 ```bash
 # Convert 100 USD to EUR
-currency-exchange 100 usd to eur
+cex 100 usd to eur
 
 # Convert to multiple currencies
-currency-exchange 100 usd to eur gbp jpy
+cex 100 usd to eur gbp jpy
 
 # Use a different theme
-currency-exchange -t sunset 100 usd to eur
+cex -t sunset 100 usd to eur
 
 # Use minimal format
-currency-exchange -f minimal 100 usd to eur
+cex -f minimal 100 usd to eur
 ```
 
 For more usage examples and options, visit the [currency-exchange repository](https://github.com/janbenisek/currency-exchange).

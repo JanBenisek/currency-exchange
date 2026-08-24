@@ -1,7 +1,7 @@
 # This file is automatically updated by GitHub Actions on release
 # Manual edits will be overwritten
 
-class CurrencyExchange < Formula
+class Cex < Formula
   desc "Simple CLI tool to convert currencies"
   homepage "https://github.com/janbenisek/currency-exchange"
   version "1.0.0"
@@ -24,15 +24,15 @@ class CurrencyExchange < Formula
 
   def install
     if Hardware::CPU.arm?
-      bin.install "cex-darwin-arm64" => "currency-exchange"
+      bin.install "cex-darwin-arm64" => "cex"
     elsif Hardware::CPU.intel?
-      bin.install "cex-darwin-amd64" => "currency-exchange"
+      bin.install "cex-darwin-amd64" => "cex"
     elsif OS.linux?
-      bin.install "cex-linux-amd64" => "currency-exchange"
+      bin.install "cex-linux-amd64" => "cex"
     end
   end
 
   test do
-    system bin/"currency-exchange", "1", "usd", "to", "eur"
+    system bin/"cex", "1", "usd", "to", "eur"
   end
 end
