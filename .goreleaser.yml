@@ -1,0 +1,57 @@
+project_name: cex
+
+before:
+  hooks:
+    - go mod tidy
+
+builds:
+  - env:
+      - CGO_ENABLED=0
+    goos:
+      - darwin
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.Version={{.Version}}
+    main: .
+    binary: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+archives:
+  - format: binary
+    name_template: "{{ .ProjectName }}-{{ .Os }}-{{ .Arch }}"
+
+checksum:
+  name_template: "checksums.txt"
+
+release:
+  github:
+    owner: janbenisek
+    name: currency-exchange
+  draft: false
+  prerelease: false
+
+brews:
+  - name: cex
+    tap:
+      owner: janbenisek
+      name: currency-exchange
+      branch: main
+      folder: Formula
+    commit_author:
+      name: github-actions[bot]
+      email: github-actions[bot]@users.noreply.github.com
+    homepage: https://github.com/janbenisek/currency-exchange
+    description: Simple CLI tool to convert currencies
+    license: MIT
+    skip_upload: false
+    folder: Formula
+    install: |
+      bin.install "{{ .ProjectName }}-darwin-arm64" => "cex" if Hardware::CPU.arm?
+      bin.install "{{ .ProjectName }}-darwin-amd64" => "cex" if Hardware::CPU.intel?
+      bin.install "{{ .ProjectName }}-linux-amd64" => "cex" if OS.linux?
+    test: |
+      system bin/"cex", "1", "usd", "to", "eur"
