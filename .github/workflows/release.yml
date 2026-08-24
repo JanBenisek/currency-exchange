@@ -22,10 +22,10 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME#v} # Remove 'v' prefix from tag
           echo "Building version $VERSION"
-          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-amd64
-          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-arm64
-          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-linux-amd64
-          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-windows-amd64.exe
+          GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.Version=$VERSION" -o cex-darwin-arm64 .
+          GOOS=linux GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-linux-amd64 .
+          GOOS=windows GOARCH=amd64 go build -ldflags "-X main.Version=$VERSION" -o cex-windows-amd64.exe .
       
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -45,70 +45,70 @@ jobs:
           echo "sha256_amd64=$(shasum -a 256 cex-darwin-amd64 | awk '{print $1}')" >> $GITHUB_OUTPUT
           echo "sha256_linux=$(shasum -a 256 cex-linux-amd64 | awk '{print $1}')" >> $GITHUB_OUTPUT
       
-      # - name: Update Homebrew formula
-      #   env:
-      #     GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      #     VERSION: ${{ github.ref_name }}
-      #     SHA256_ARM64: ${{ steps.hashes.outputs.sha256_arm64 }}
-      #     SHA256_AMD64: ${{ steps.hashes.outputs.sha256_amd64 }}
-      #     SHA256_LINUX: ${{ steps.hashes.outputs.sha256_linux }}
-      #   run: |
-      #     # Remove 'v' prefix from version tag
-      #     VERSION_NUM=${VERSION#v}
-          
-      #     # Clone the homebrew tap repo
-      #     git clone https://github.com/JanBenisek/homebrew-cex.git /tmp/homebrew-cex
-      #     cd /tmp/homebrew-cex
-          
-      #     # Configure git
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-      #     git config user.name "github-actions[bot]"
-          
-      #     # Configure auth for push
-      #     git remote set-url origin https://x-access-token:${GITHUB_TOKEN}@github.com/JanBenisek/homebrew-cex.git
-          
-      #     # Update the formula
-      #     cat > Formula/cex.rb << 'EOF'
-      #     class Cex < Formula
-      #       desc "Simple CLI tool to convert currencies"
-      #       homepage "https://github.com/JanBenisek/currency-exchange"
-      #       version "VERSION_NUM"
-      #       on_macos do
-      #         on_arm do
-      #           url "https://github.com/JanBenisek/currency-exchange/releases/download/vVERSION_NUM/cex-darwin-arm64"
-      #           sha256 "SHA256_ARM64"
-      #         end
-      #         on_intel do
-      #           url "https://github.com/JanBenisek/currency-exchange/releases/download/vVERSION_NUM/cex-darwin-amd64"
-      #           sha256 "SHA256_AMD64"
-      #         end
-      #       end
-      #       on_linux do
-      #         url "https://github.com/JanBenisek/currency-exchange/releases/download/vVERSION_NUM/cex-linux-amd64"
-      #         sha256 "SHA256_LINUX"
-      #       end
-      #       def install
-      #         if Hardware::CPU.arm?
-      #           bin.install "cex-darwin-arm64" => "cex"
-      #         elsif Hardware::CPU.intel?
-      #           bin.install "cex-darwin-amd64" => "cex"
-      #         elsif OS.linux?
-      #           bin.install "cex-linux-amd64" => "cex"
-      #         end
-      #       end
-      #       test do
-      #         system bin/"cex", "1", "usd", "to", "eur"
-      #       end
-      #     end
-      #     EOF
-          
-      #     # Replace placeholders
-      #     sed -i '' "s/VERSION_NUM/$VERSION_NUM/g" Formula/cex.rb
-      #     sed -i '' "s/SHA256_ARM64/$SHA256_ARM64/g" Formula/cex.rb
-      #     sed -i '' "s/SHA256_AMD64/$SHA256_AMD64/g" Formula/cex.rb
-      #     sed -i '' "s/SHA256_LINUX/$SHA256_LINUX/g" Formula/cex.rb
-          
-      #     # Commit and push
-      #     git add Formula/cex.rb
-      #     git commit -m "chore: update cex to $VERSION_NUM"
-      #     git push origin main
+      - name: Update Homebrew formula
+        env:
+          HOMEBREW_TAP_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          VERSION: ${{ github.ref_name }}
+          SHA256_ARM64: ${{ steps.hashes.outputs.sha256_arm64 }}
+          SHA256_AMD64: ${{ steps.hashes.outputs.sha256_amd64 }}
+          SHA256_LINUX: ${{ steps.hashes.outputs.sha256_linux }}
+        run: |
+          # Remove 'v' prefix from version tag
+          VERSION_NUM=${VERSION#v}
+
+          # Clone the homebrew tap repo
+          git clone https://github.com/janbenisek/homebrew-tap.git /tmp/homebrew-tap
+          cd /tmp/homebrew-tap
+
+          # Configure git
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git config user.name "github-actions[bot]"
+
+          # Configure auth for push
+          git remote set-url origin https://x-access-token:${HOMEBREW_TAP_TOKEN}@github.com/janbenisek/homebrew-tap.git
+
+          # Update the formula
+          cat > Formula/currency-exchange.rb << 'EOF'
+          class CurrencyExchange < Formula
+            desc "Simple CLI tool to convert currencies"
+            homepage "https://github.com/janbenisek/currency-exchange"
+            version "VERSION_NUM"
+            on_macos do
+              on_arm do
+                url "https://github.com/janbenisek/currency-exchange/releases/download/vVERSION_NUM/cex-darwin-arm64"
+                sha256 "SHA256_ARM64"
+              end
+              on_intel do
+                url "https://github.com/janbenisek/currency-exchange/releases/download/vVERSION_NUM/cex-darwin-amd64"
+                sha256 "SHA256_AMD64"
+              end
+            end
+            on_linux do
+              url "https://github.com/janbenisek/currency-exchange/releases/download/vVERSION_NUM/cex-linux-amd64"
+              sha256 "SHA256_LINUX"
+            end
+            def install
+              if Hardware::CPU.arm?
+                bin.install "cex-darwin-arm64" => "currency-exchange"
+              elsif Hardware::CPU.intel?
+                bin.install "cex-darwin-amd64" => "currency-exchange"
+              elsif OS.linux?
+                bin.install "cex-linux-amd64" => "currency-exchange"
+              end
+            end
+            test do
+              system bin/"currency-exchange", "1", "usd", "to", "eur"
+            end
+          end
+          EOF
+
+          # Replace placeholders
+          sed -i '' "s/VERSION_NUM/$VERSION_NUM/g" Formula/currency-exchange.rb
+          sed -i '' "s/SHA256_ARM64/$SHA256_ARM64/g" Formula/currency-exchange.rb
+          sed -i '' "s/SHA256_AMD64/$SHA256_AMD64/g" Formula/currency-exchange.rb
+          sed -i '' "s/SHA256_LINUX/$SHA256_LINUX/g" Formula/currency-exchange.rb
+
+          # Commit and push
+          git add Formula/currency-exchange.rb
+          git commit -m "chore: update currency-exchange to $VERSION_NUM"
+          git push origin main

@@ -4,8 +4,7 @@ Why?
 A sim, colorful command-line tool for currency conversion with support for multiple display formats and themes.
 
 ## TODO
-- add nice short videa, better shorter readme, write portions yuourself
-- add release to homebrew (see how it is done https://github.com/xxczaki/cash-cli)
+- add nice short video, better shorter readme
 
 ## Features
 
@@ -17,6 +16,22 @@ A sim, colorful command-line tool for currency conversion with support for multi
 - **Multiple currency conversions**: Convert to multiple currencies in a single command
 
 ## Installation
+
+### Homebrew (Recommended)
+
+```bash
+# Add the tap
+brew tap janbenisek/tap
+
+# Install
+brew install currency-exchange
+```
+
+To upgrade:
+
+```bash
+brew upgrade currency-exchange
+```
 
 ### From Source
 
