@@ -40,7 +40,6 @@ brews:
       owner: janbenisek
       name: currency-exchange
       branch: main
-      folder: Formula
     commit_author:
       name: github-actions[bot]
       email: github-actions[bot]@users.noreply.github.com
