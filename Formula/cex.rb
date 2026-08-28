@@ -5,13 +5,13 @@
 class Cex < Formula
   desc "Simple CLI tool to convert currencies"
   homepage "https://github.com/janbenisek/currency-exchange"
-  version "1.4.0"
+  version "1.6.0"
   license "MIT"
 
   on_macos do
     on_intel do
-      url "https://github.com/janbenisek/currency-exchange/releases/download/v1.4.0/cex-darwin-amd64"
-      sha256 "7f4e2f7d9896e64292d92778f1b5a46c216d03adf38d4cc650efd65ddf1160db"
+      url "https://github.com/janbenisek/currency-exchange/releases/download/v1.6.0/cex-darwin-amd64"
+      sha256 "94778bcae3590fa1b85a6b57775b360f98fa4a6660032b1b96d35f7ba904bb0f"
 
       def install
         bin.install "cex-darwin-arm64" => "cex" if Hardware::CPU.arm?
@@ -20,8 +20,8 @@ class Cex < Formula
       end
     end
     on_arm do
-      url "https://github.com/janbenisek/currency-exchange/releases/download/v1.4.0/cex-darwin-arm64"
-      sha256 "2c39394d9cac4399880428eaae9919c596f28ee3d134ce36b4421ab2690d45a2"
+      url "https://github.com/janbenisek/currency-exchange/releases/download/v1.6.0/cex-darwin-arm64"
+      sha256 "b19a2db714d4c423f96aa8015c855e21502af8e11cefa2affbe31d50d304e8bc"
 
       def install
         bin.install "cex-darwin-arm64" => "cex" if Hardware::CPU.arm?
@@ -34,8 +34,8 @@ class Cex < Formula
   on_linux do
     on_intel do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/janbenisek/currency-exchange/releases/download/v1.4.0/cex-linux-amd64"
-        sha256 "67785bb35ead572ebb565d60ab6ac34b120b7916c6ea75162ed8ce569034e66e"
+        url "https://github.com/janbenisek/currency-exchange/releases/download/v1.6.0/cex-linux-amd64"
+        sha256 "b298ce987abe892bd7719ceaa69e87af3023dea6e624800cdce5715f975ffd8b"
 
         def install
           bin.install "cex-darwin-arm64" => "cex" if Hardware::CPU.arm?
@@ -46,8 +46,8 @@ class Cex < Formula
     end
     on_arm do
       if Hardware::CPU.is_64_bit?
-        url "https://github.com/janbenisek/currency-exchange/releases/download/v1.4.0/cex-linux-arm64"
-        sha256 "5b04f51be4302665095d326535c1f75cad68fcd066ad460d656d73754cae6e1b"
+        url "https://github.com/janbenisek/currency-exchange/releases/download/v1.6.0/cex-linux-arm64"
+        sha256 "2e9e3f2486475408c8179a989cb0942cac7a1e87e6baefd8036bc9f4699f720d"
 
         def install
           bin.install "cex-darwin-arm64" => "cex" if Hardware::CPU.arm?
