@@ -16,7 +16,8 @@ $ cex 100 usd to eur gbp jpy
 ## Install
 
 ```bash
-brew tap janbenisek/currency-exchange
+brew tap janbenisek/currency-exchange https://github.com/janbenisek/currency-exchange
+brew trust janbenisek/currency-exchange
 brew install cex
 ```
 
